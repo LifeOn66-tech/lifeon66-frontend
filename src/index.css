@@ -1,0 +1,334 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-white;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d2b 50%, #0a0a1a 100%);
+  }
+}
+
+@layer components {
+
+  /* ========================
+     BASE / COSMIC THEME
+  ======================== */
+  .cosmic-card {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 shadow-2xl;
+  }
+
+  .cosmic-button {
+    @apply bg-gradient-to-r from-cosmic-500 to-cosmic-600 hover:from-cosmic-400 hover:to-cosmic-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg;
+  }
+
+  .cosmic-input {
+    @apply bg-white/10 border border-white/30 rounded-lg px-4 py-3 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-cosmic-400 focus:border-transparent backdrop-blur-sm;
+  }
+
+  .reading-card {
+    @apply cosmic-card hover:bg-white/15 transition-all duration-300 cursor-pointer;
+  }
+
+  /* ========================
+     ASTROLOGY — CELESTIAL THEME
+     Deep space: midnight navy, gold stars, cosmic blue
+  ======================== */
+  .astrology-bg {
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(14, 154, 232, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(240, 184, 0, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(7, 82, 132, 0.15) 0%, transparent 60%),
+      linear-gradient(135deg, #04060f 0%, #060f1e 40%, #0a1a35 70%, #04060f 100%);
+    min-height: 100vh;
+  }
+
+  .astrology-card {
+    background: rgba(6, 15, 30, 0.7);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(56, 181, 248, 0.2);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(6, 15, 30, 0.5), inset 0 1px 0 rgba(56, 181, 248, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .astrology-card:hover {
+    border-color: rgba(56, 181, 248, 0.4);
+    box-shadow: 0 8px 40px rgba(6, 15, 30, 0.6), 0 0 20px rgba(56, 181, 248, 0.1), inset 0 1px 0 rgba(56, 181, 248, 0.15);
+  }
+
+  .astrology-card-gold {
+    background: rgba(10, 37, 64, 0.7);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(240, 184, 0, 0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(4, 6, 15, 0.5), inset 0 1px 0 rgba(240, 184, 0, 0.1);
+  }
+
+  .astrology-button {
+    background: linear-gradient(135deg, #0e9ae8 0%, #0361a0 50%, #f0b800 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    transform-origin: center;
+    box-shadow: 0 4px 20px rgba(14, 154, 232, 0.4);
+    cursor: pointer;
+    border: none;
+  }
+
+  .astrology-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 30px rgba(14, 154, 232, 0.6), 0 0 20px rgba(240, 184, 0, 0.3);
+  }
+
+  .astrology-input {
+    background: rgba(6, 15, 30, 0.6);
+    border: 1px solid rgba(56, 181, 248, 0.3);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: white;
+    backdrop-filter: blur(8px);
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .astrology-input::placeholder {
+    color: rgba(125, 206, 255, 0.4);
+  }
+
+  .astrology-input:focus {
+    border-color: rgba(56, 181, 248, 0.6);
+    box-shadow: 0 0 0 3px rgba(56, 181, 248, 0.2);
+  }
+
+  /* ========================
+     PALMISTRY — FIRE & PARCHMENT THEME
+     Warm amber, deep crimson, ancient manuscript
+  ======================== */
+  .palmistry-bg {
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(234, 99, 7, 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 70%, rgba(185, 28, 28, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 10%, rgba(249, 115, 22, 0.08) 0%, transparent 40%),
+      linear-gradient(135deg, #1a0800 0%, #2d0e00 30%, #1f0500 60%, #150300 100%);
+    min-height: 100vh;
+  }
+
+  .palmistry-card {
+    background: rgba(30, 10, 2, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(249, 115, 22, 0.25);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(15, 5, 0, 0.6), inset 0 1px 0 rgba(249, 115, 22, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .palmistry-card:hover {
+    border-color: rgba(249, 115, 22, 0.45);
+    box-shadow: 0 8px 40px rgba(15, 5, 0, 0.7), 0 0 20px rgba(249, 115, 22, 0.15), inset 0 1px 0 rgba(249, 115, 22, 0.2);
+  }
+
+  .palmistry-card-amber {
+    background: rgba(42, 14, 2, 0.8);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(217, 133, 53, 0.35);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(10, 3, 0, 0.5), inset 0 1px 0 rgba(217, 133, 53, 0.12);
+  }
+
+  .palmistry-button {
+    background: linear-gradient(135deg, #ea6307 0%, #c24c09 50%, #9a3c10 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(234, 99, 7, 0.5);
+    cursor: pointer;
+    border: none;
+  }
+
+  .palmistry-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 30px rgba(234, 99, 7, 0.7), 0 0 20px rgba(217, 133, 53, 0.4);
+  }
+
+  .palmistry-input {
+    background: rgba(20, 6, 0, 0.6);
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: white;
+    backdrop-filter: blur(8px);
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .palmistry-input::placeholder {
+    color: rgba(255, 191, 130, 0.4);
+  }
+
+  .palmistry-input:focus {
+    border-color: rgba(249, 115, 22, 0.6);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  }
+
+  /* ========================
+     FACE READING — TEAL SCIENTIFIC THEME
+     Deep teal, cyan, geometric precision
+  ======================== */
+  .facereading-bg {
+    background:
+      radial-gradient(ellipse at 20% 30%, rgba(13, 148, 136, 0.14) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 70%, rgba(2, 132, 199, 0.10) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(15, 118, 110, 0.08) 0%, transparent 45%),
+      linear-gradient(135deg, #010f0e 0%, #03201e 35%, #042a28 65%, #010f0e 100%);
+    min-height: 100vh;
+  }
+
+  .facereading-card {
+    background: rgba(2, 18, 17, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(1, 10, 9, 0.6), inset 0 1px 0 rgba(45, 212, 191, 0.08);
+    transition: all 0.3s ease;
+  }
+
+  .facereading-card:hover {
+    border-color: rgba(45, 212, 191, 0.4);
+    box-shadow: 0 8px 40px rgba(1, 10, 9, 0.7), 0 0 20px rgba(45, 212, 191, 0.12), inset 0 1px 0 rgba(45, 212, 191, 0.15);
+  }
+
+  .facereading-card-cyan {
+    background: rgba(4, 47, 46, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(20, 184, 166, 0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 32px rgba(1, 10, 9, 0.5), inset 0 1px 0 rgba(20, 184, 166, 0.1);
+  }
+
+  .facereading-button {
+    background: linear-gradient(135deg, #14b8a6 0%, #0f766e 50%, #0d9488 100%);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(20, 184, 166, 0.4);
+    cursor: pointer;
+    border: none;
+  }
+
+  .facereading-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 30px rgba(20, 184, 166, 0.6), 0 0 20px rgba(45, 212, 191, 0.3);
+  }
+
+  .facereading-input {
+    background: rgba(2, 14, 13, 0.6);
+    border: 1px solid rgba(45, 212, 191, 0.3);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: white;
+    backdrop-filter: blur(8px);
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .facereading-input::placeholder {
+    color: rgba(94, 234, 216, 0.4);
+  }
+
+  .facereading-input:focus {
+    border-color: rgba(45, 212, 191, 0.6);
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+  }
+
+  .grid-overlay {
+    background-image:
+      linear-gradient(rgba(45, 212, 191, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(45, 212, 191, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ========================
+     DASHBOARD THEMED CARDS
+  ======================== */
+  .dash-card-astrology {
+    background: linear-gradient(135deg, rgba(6, 15, 30, 0.9) 0%, rgba(10, 37, 64, 0.8) 100%);
+    border: 1px solid rgba(56, 181, 248, 0.25);
+    box-shadow: 0 4px 24px rgba(4, 6, 15, 0.6);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .dash-card-astrology:hover {
+    border-color: rgba(56, 181, 248, 0.5);
+    box-shadow: 0 8px 32px rgba(4, 6, 15, 0.8), 0 0 24px rgba(56, 181, 248, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .dash-card-palmistry {
+    background: linear-gradient(135deg, rgba(30, 10, 2, 0.9) 0%, rgba(50, 18, 4, 0.8) 100%);
+    border: 1px solid rgba(249, 115, 22, 0.25);
+    box-shadow: 0 4px 24px rgba(10, 2, 0, 0.6);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .dash-card-palmistry:hover {
+    border-color: rgba(249, 115, 22, 0.5);
+    box-shadow: 0 8px 32px rgba(10, 2, 0, 0.8), 0 0 24px rgba(249, 115, 22, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .dash-card-face {
+    background: linear-gradient(135deg, rgba(2, 18, 17, 0.9) 0%, rgba(4, 47, 46, 0.8) 100%);
+    border: 1px solid rgba(45, 212, 191, 0.25);
+    box-shadow: 0 4px 24px rgba(1, 10, 9, 0.6);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .dash-card-face:hover {
+    border-color: rgba(45, 212, 191, 0.5);
+    box-shadow: 0 8px 32px rgba(1, 10, 9, 0.8), 0 0 24px rgba(45, 212, 191, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .dash-card-blueprint {
+    background: linear-gradient(135deg, rgba(15, 10, 2, 0.9) 0%, rgba(30, 20, 5, 0.8) 100%);
+    border: 1px solid rgba(240, 184, 0, 0.3);
+    box-shadow: 0 4px 24px rgba(8, 5, 0, 0.6);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .dash-card-blueprint:hover {
+    border-color: rgba(240, 184, 0, 0.55);
+    box-shadow: 0 8px 32px rgba(8, 5, 0, 0.8), 0 0 24px rgba(240, 184, 0, 0.2);
+    transform: translateY(-4px);
+  }
+}
