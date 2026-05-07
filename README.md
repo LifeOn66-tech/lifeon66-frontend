@@ -29,7 +29,7 @@ Discover your career potential through astrology, palmistry, and face reading wi
 1. Connect your GitHub repository to Vercel.
 2. Select the `dev` branch for deployment (if you want to deploy latest changes).
 3. Set the following Environment Variable in Vercel:
-   - `VITE_API_URL`: Your backend API URL (e.g., `https://api.lifeon66.com/api`)
+   - `VITE_API_URL`: `https://lifeon66-backend.onrender.com/api`
 4. Vercel will automatically detect Vite and use the following settings:
    - **Framework Preset:** Vite
    - **Build Command:** `npm run build`
