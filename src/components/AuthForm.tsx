@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Star as Stars, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Star as Stars, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 
 export function AuthForm() {
@@ -28,7 +28,12 @@ export function AuthForm() {
         if (error) throw new Error(error)
       }
     } catch (err: any) {
-      setError(err.message)
+      // Handle the duplicate key error message specifically if it comes from the backend
+      if (err.message.includes('E11000')) {
+        setError('An account with this email already exists. Please sign in instead.')
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -64,15 +69,23 @@ export function AuthForm() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <motion.div
-              className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-sm"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              {error}
-            </motion.div>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-200 text-sm shadow-lg shadow-red-900/20"
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              >
+                <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-300 mb-0.5">Authentication Error</p>
+                  <p className="opacity-90">{error}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="space-y-4">
             {isSignUp && (
