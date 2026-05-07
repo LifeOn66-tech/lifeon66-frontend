@@ -28,8 +28,8 @@ export function AuthForm() {
         if (error) throw new Error(error)
       }
     } catch (err: any) {
-      // Handle the duplicate key error message specifically if it comes from the backend
-      if (err.message.includes('E11000')) {
+      // Handle the duplicate key error message specifically
+      if (err.message.includes('E11000') || err.message.includes('duplicate key')) {
         setError('An account with this email already exists. Please sign in instead.')
       } else {
         setError(err.message)

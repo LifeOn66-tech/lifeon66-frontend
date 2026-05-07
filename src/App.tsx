@@ -23,26 +23,22 @@ function App() {
     )
   }
 
-  if (!user) {
-    return (
-      <ErrorBoundary>
-        <AuthForm />
-      </ErrorBoundary>
-    )
-  }
-
   return (
     <ErrorBoundary>
       <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/astrology" element={<AstrologyChart />} />
-            <Route path="/palmistry" element={<PalmReading />} />
-            <Route path="/face-reading" element={<FaceReading />} />
-            <Route path="/comprehensive" element={<ComprehensiveAnalysis />} />
-          </Routes>
-        </Layout>
+        {!user ? (
+          <AuthForm />
+        ) : (
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/astrology" element={<AstrologyChart />} />
+              <Route path="/palmistry" element={<PalmReading />} />
+              <Route path="/face-reading" element={<FaceReading />} />
+              <Route path="/comprehensive" element={<ComprehensiveAnalysis />} />
+            </Routes>
+          </Layout>
+        )}
       </Router>
     </ErrorBoundary>
   )
