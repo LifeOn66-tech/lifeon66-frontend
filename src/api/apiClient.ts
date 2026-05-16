@@ -1,12 +1,19 @@
 import axios from 'axios';
 
 const getBaseURL = () => {
-  const url = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  // Ensure the URL ends with /api if it's a base domain
-  if (url && !url.endsWith('/api') && !url.endsWith('/api/')) {
-    return `${url.replace(/\/$/, '')}/api`;
+  const envUrl = import.meta.env.VITE_API_URL || '';
+  let url = envUrl || 'http://localhost:5000/api';
+  
+  // Normalize: remove trailing slashes
+  url = url.replace(/\/+$/, '');
+  
+  // Ensure the URL contains /api
+  if (!url.endsWith('/api') && !url.includes('/api/')) {
+    url = `${url}/api`;
   }
-  return url;
+  
+  // Always ensure it ends with a trailing slash for consistent path joining with relative URLs
+  return `${url}/`;
 };
 
 const apiClient = axios.create({
