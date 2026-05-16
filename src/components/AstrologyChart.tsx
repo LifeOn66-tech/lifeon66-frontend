@@ -73,7 +73,7 @@ const SectionCard = ({
   );
 };
 
-export default function AstrologyChart() {
+export function AstrologyChart() {
   const navigate = useNavigate();
   const [birthData, setBirthData] = useState({ date: '', time: '', place: '' });
   const [reading, setReading] = useState<AstrologyReading | null>(null);

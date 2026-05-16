@@ -5,6 +5,7 @@ export interface User {
   id: string;
   email: string;
   fullName?: string;
+  subscriptionTier?: 'free' | 'premium' | 'professional';
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName?: string) => Promise<{ data: any; error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
+  syncUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -83,8 +85,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { error: null };
   };
 
+  const syncUser = async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      if (response.data.success) {
+        setUser(response.data.data);
+        localStorage.setItem('user', JSON.stringify(response.data.data));
+      }
+    } catch (error) {
+      console.error('Failed to sync user:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, syncUser }}>
       {children}
     </AuthContext.Provider>
   );

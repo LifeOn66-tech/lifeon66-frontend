@@ -124,7 +124,7 @@ function generateDeepAnalysis(): PalmAnalysis {
   };
 }
 
-export default function PalmReading() {
+export function PalmReading() {
   const navigate = useNavigate();
   const [leftPalmImage, setLeftPalmImage] = useState<string | null>(null);
   const [rightPalmImage, setRightPalmImage] = useState<string | null>(null);
@@ -187,7 +187,11 @@ export default function PalmReading() {
     const result = generateDeepAnalysis();
     try {
       await apiClient.post('/readings/palmistry', {
-        imageUrl: leftPalmImage || '',
+        images: {
+          left: leftPalmImage || '',
+          right: rightPalmImage || '',
+          both: ''
+        },
         fateLineAnalysis: result.fateLine.description,
         headLineAnalysis: result.headLine.description,
         sunLineAnalysis: result.sunLine.description,

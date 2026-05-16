@@ -164,7 +164,7 @@ function getTraitDescription(trait: string): string {
   return descriptions[trait] || 'contributes unique value to professional contexts';
 }
 
-export default function FaceReading() {
+export function FaceReading() {
   const navigate = useNavigate();
   const [frontFaceImage, setFrontFaceImage] = useState<string | null>(null);
   const [leftSideImage, setLeftSideImage] = useState<string | null>(null);
@@ -230,7 +230,11 @@ export default function FaceReading() {
     const result = generateFaceAnalysis();
     try {
       await apiClient.post('/readings/face', {
-        imageUrl: frontFaceImage || '',
+        images: {
+          center: frontFaceImage || '',
+          left: leftSideImage || '',
+          right: rightSideImage || ''
+        },
         personalityTraits: result.traitScores,
         leadershipScore: result.traitScores.leadership,
         teamworkScore: result.traitScores.teamwork,

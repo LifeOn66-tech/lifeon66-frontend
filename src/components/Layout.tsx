@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Star as Stars, User, LogOut, Menu, X, Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -105,6 +105,7 @@ export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const theme = getThemeConfig(location.pathname)
 
   const handleSignOut = async () => {
@@ -197,6 +198,24 @@ export function Layout({ children }: LayoutProps) {
             {user && (
               <div className="hidden md:flex items-center space-x-6">
                 <motion.button
+                  onClick={() => navigate('/')}
+                  className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Stars className="w-5 h-5" />
+                  <span>Dashboard</span>
+                </motion.button>
+                <motion.button
+                  onClick={() => navigate('/comprehensive')}
+                  className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span>Career Report</span>
+                </motion.button>
+                <motion.button
                   className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -239,6 +258,20 @@ export function Layout({ children }: LayoutProps) {
               exit={{ opacity: 0, height: 0 }}
             >
               <div className="px-4 py-4 space-y-3">
+                <button 
+                  onClick={() => { navigate('/'); setMobileMenuOpen(false); }}
+                  className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-full"
+                >
+                  <Stars className="w-5 h-5" />
+                  <span>Dashboard</span>
+                </button>
+                <button 
+                  onClick={() => { navigate('/comprehensive'); setMobileMenuOpen(false); }}
+                  className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-full"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span>Career Report</span>
+                </button>
                 <button className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-full">
                   <User className="w-5 h-5" />
                   <span>Profile</span>

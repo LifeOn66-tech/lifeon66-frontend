@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import apiClient from '../api/apiClient'
+import { useAuth } from '../hooks/useAuth'
 import {
   Star,
   Hand,
@@ -12,14 +13,19 @@ import {
   ArrowRight,
   Sparkles,
   Lock,
-  CheckCircle
+  CheckCircle,
+  Zap,
+  Crown
 } from 'lucide-react'
 
 export function Dashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [hasAstrology, setHasAstrology] = useState(false)
   const [hasPalm, setHasPalm] = useState(false)
   const [hasFace, setHasFace] = useState(false)
+  const [hasInsight, setHasInsight] = useState(false)
+  const [readingsData, setReadingsData] = useState<any>({ astrology: null, palmistry: null, face: null })
 
   useEffect(() => {
     checkCompletedReadings()
@@ -46,10 +52,16 @@ export function Dashboard() {
     try {
       const response = await apiClient.get('/readings');
       if (response.data.success) {
-        const { astrology, palmistry, face } = response.data.data;
+        const { astrology, palmistry, face, insights } = response.data.data;
         setHasAstrology(astrology.length > 0);
         setHasPalm(palmistry.length > 0);
         setHasFace(face.length > 0);
+        setHasInsight(insights && insights.length > 0);
+        setReadingsData({
+          astrology: astrology[0] || null,
+          palmistry: palmistry[0] || null,
+          face: face[0] || null
+        });
       }
     } catch (error) {
       console.error('Error fetching readings:', error);
@@ -58,13 +70,16 @@ export function Dashboard() {
 
   const completedCount = [hasAstrology, hasPalm, hasFace].filter(Boolean).length
   const allComplete = completedCount === 3
+  const isPremium = user?.subscriptionTier === 'premium' || user?.subscriptionTier === 'professional'
 
   const readingTypes = [
     {
       id: 'astrology',
       title: 'Vedic Astrology',
-      subtitle: 'Jyotisha — Light of God',
-      description: 'Uncover your dharmic career path through planetary alignments, Mahadasha periods, and sacred birth chart analysis',
+      subtitle: readingsData.astrology ? `Zodiac: ${readingsData.astrology.sunSign}` : 'Jyotisha — Light of God',
+      description: readingsData.astrology 
+        ? `Your chart reveals a strong ${readingsData.astrology.risingSign} influence with focus on ${readingsData.astrology.careerFocus || 'professional growth'}.`
+        : 'Uncover your dharmic career path through planetary alignments, Mahadasha periods, and sacred birth chart analysis',
       icon: Star,
       cardClass: 'dash-card-astrology',
       iconGrad: 'linear-gradient(135deg, #0361a0 0%, #b65d08 100%)',
@@ -74,14 +89,18 @@ export function Dashboard() {
       featureDot: '#38b5f8',
       btnBg: 'rgba(3, 97, 160, 0.6)',
       btnBorder: 'rgba(56, 181, 248, 0.4)',
-      features: ['10th House Analysis', 'Mahadasha Career Periods', 'Sacred Yoga Combinations'],
+      features: readingsData.astrology 
+        ? [`Sun: ${readingsData.astrology.sunSign}`, `Moon: ${readingsData.astrology.moonSign}`, `Rising: ${readingsData.astrology.risingSign}`]
+        : ['10th House Analysis', 'Mahadasha Career Periods', 'Sacred Yoga Combinations'],
       isCompleted: hasAstrology,
     },
     {
       id: 'palmistry',
       title: 'Palm Reading',
-      subtitle: 'Hasta Samudrika Shastra',
-      description: 'Decode the ancient lines etched in your palms — fate, destiny, and career potential revealed through fire and parchment wisdom',
+      subtitle: readingsData.palmistry ? `Hand Type: ${readingsData.palmistry.handType}` : 'Hasta Samudrika Shastra',
+      description: readingsData.palmistry
+        ? `The lines in your palm suggest a ${readingsData.palmistry.handType} nature with a clear ${readingsData.palmistry.primaryLineFocus || 'Fate Line'} influence.`
+        : 'Decode the ancient lines etched in your palms — fate, destiny, and career potential revealed through fire and parchment wisdom',
       icon: Hand,
       cardClass: 'dash-card-palmistry',
       iconGrad: 'linear-gradient(135deg, #c24c09 0%, #9a3c10 100%)',
@@ -91,14 +110,18 @@ export function Dashboard() {
       featureDot: '#f97316',
       btnBg: 'rgba(154, 60, 16, 0.6)',
       btnBorder: 'rgba(249, 115, 22, 0.4)',
-      features: ['Fate Line Analysis', 'Head & Heart Lines', 'Mount & Finger Profiles'],
+      features: readingsData.palmistry
+        ? [`Type: ${readingsData.palmistry.handType}`, `Fate: ${readingsData.palmistry.fateLineStrength || 'Visible'}`, `Life: ${readingsData.palmistry.lifeLineEnergy || 'Strong'}`]
+        : ['Fate Line Analysis', 'Head & Heart Lines', 'Mount & Finger Profiles'],
       isCompleted: hasPalm,
     },
     {
       id: 'face-reading',
       title: 'Face Reading',
-      subtitle: 'Saamudraka Shastra',
-      description: 'Map the geometric precision of your facial features to reveal leadership capacity, authority zones, and career destiny',
+      subtitle: readingsData.face ? `Archetype: ${readingsData.face.faceShape}` : 'Saamudraka Shastra',
+      description: readingsData.face
+        ? `Your facial features indicate a ${readingsData.face.faceShape} archetype, reflecting leadership and strong professional authority.`
+        : 'Map the geometric precision of your facial features to reveal leadership capacity, authority zones, and career destiny',
       icon: User,
       cardClass: 'dash-card-face',
       iconGrad: 'linear-gradient(135deg, #0f766e 0%, #0369a1 100%)',
@@ -108,26 +131,36 @@ export function Dashboard() {
       featureDot: '#2dd4bf',
       btnBg: 'rgba(15, 118, 110, 0.6)',
       btnBorder: 'rgba(45, 212, 191, 0.4)',
-      features: ['7 Face Shape Archetypes', 'Feature-by-Feature Mapping', 'Three-Region Age System'],
+      features: readingsData.face
+        ? [`Shape: ${readingsData.face.faceShape}`, `Eyes: ${readingsData.face.eyeType || 'Insightful'}`, `Zone: ${readingsData.face.dominantZone || 'Forehead'}`]
+        : ['7 Face Shape Archetypes', 'Feature-by-Feature Mapping', 'Three-Region Age System'],
       isCompleted: hasFace,
     },
     {
       id: 'comprehensive',
-      title: 'Career Blueprint',
-      subtitle: 'Unified Cosmic Analysis',
-      description: 'All three ancient sciences converge — a complete 360° career roadmap with 6-month and 3-year cosmic guidance',
-      icon: TrendingUp,
+      title: user?.subscriptionTier === 'professional' ? 'Cosmic Master' : 'Astral Navigator',
+      subtitle: isPremium ? `${user?.subscriptionTier === 'professional' ? 'Professional' : 'Premium'} Access` : 'Unlock Deep Insights',
+      description: user?.subscriptionTier === 'professional' 
+        ? 'Full 25-page exhaustive report with planetary dosha/yoga, day-by-day action plans, and micro-milestones.'
+        : 'Unlock the full 15-page detailed analysis, 3-year career roadmap, and deep trait interpretations.',
+      icon: user?.subscriptionTier === 'professional' ? Crown : Zap,
       cardClass: 'dash-card-blueprint',
-      iconGrad: 'linear-gradient(135deg, #b65d08 0%, #875500 100%)',
-      iconGlow: 'rgba(240, 184, 0, 0.5)',
-      accentColor: 'rgba(240, 184, 0, 0.8)',
-      subtitleColor: '#fddd76',
-      featureDot: '#f0b800',
-      btnBg: 'rgba(135, 85, 0, 0.5)',
-      btnBorder: 'rgba(240, 184, 0, 0.4)',
-      features: ['All 3 Readings Combined', '6-Month Action Plan', '3-Year Cosmic Roadmap'],
-      isCompleted: allComplete,
+      iconGrad: user?.subscriptionTier === 'professional' 
+        ? 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)' 
+        : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      iconGlow: user?.subscriptionTier === 'professional' ? 'rgba(168, 85, 247, 0.5)' : 'rgba(245, 158, 11, 0.5)',
+      accentColor: user?.subscriptionTier === 'professional' ? 'rgba(168, 85, 247, 0.8)' : 'rgba(245, 158, 11, 0.8)',
+      subtitleColor: user?.subscriptionTier === 'professional' ? '#d8b4fe' : '#fcd34d',
+      featureDot: user?.subscriptionTier === 'professional' ? '#a855f7' : '#f59e0b',
+      btnBg: user?.subscriptionTier === 'professional' ? 'rgba(126, 34, 206, 0.5)' : 'rgba(217, 119, 6, 0.5)',
+      btnBorder: user?.subscriptionTier === 'professional' ? 'rgba(168, 85, 247, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+      features: user?.subscriptionTier === 'professional'
+        ? ['25-Page Exhaustive Report', 'Planetary Dosha & Yoga', 'Day-by-Day Action Plans']
+        : ['15-Page Detailed Report', '3-Year Career Roadmap', 'Deep Trait Interpretations'],
+      isCompleted: hasInsight || allComplete,
+      isPremium: true,
     },
+
   ]
 
   const quickStats = [
@@ -197,15 +230,17 @@ export function Dashboard() {
       >
         <h2 className="text-2xl font-bold text-white mb-2 text-center">Choose Your Reading</h2>
         <p className="text-white/45 text-center text-sm mb-8">Each discipline reveals a different dimension of your career destiny</p>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {readingTypes.map((reading, index) => {
             const isComprehensive = reading.id === 'comprehensive'
             const isLocked = isComprehensive && !allComplete
+            const needsUpgrade = isComprehensive && !isPremium && allComplete
 
             return (
               <motion.div
                 key={reading.id}
-                className={`${reading.cardClass} group relative`}
+                className={`${reading.cardClass} group relative ${needsUpgrade ? 'animate-pulse-subtle' : ''}`}
                 style={{ opacity: isLocked ? 0.7 : 1 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: isLocked ? 0.7 : 1, y: 0 }}
@@ -225,6 +260,12 @@ export function Dashboard() {
                     {completedCount}/3 Complete
                   </div>
                 )}
+                {needsUpgrade && (
+                  <div className="absolute top-4 right-4 px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/40">
+                    <Zap className="w-3 h-3" />
+                    Premium Feature
+                  </div>
+                )}
                 {reading.isCompleted && !isComprehensive && (
                   <div className="absolute top-4 right-4 px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-semibold bg-green-900/50 text-green-300 border border-green-600/40">
                     <CheckCircle className="w-3 h-3" />
@@ -234,7 +275,7 @@ export function Dashboard() {
 
                 <div className="flex items-start gap-4 mb-4">
                   <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${!isLocked ? 'group-hover:scale-110' : ''}`}
+                    className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${(!isLocked && !needsUpgrade) ? 'group-hover:scale-110' : ''}`}
                     style={{ background: reading.iconGrad, boxShadow: `0 4px 16px ${reading.iconGlow}` }}
                   >
                     <reading.icon className="w-7 h-7 text-white" />
@@ -266,13 +307,20 @@ export function Dashboard() {
                   </div>
                 ) : (
                   <motion.button
-                    onClick={() => navigate(`/${reading.id}`)}
+                    onClick={() => navigate(needsUpgrade ? '/pricing' : `/${reading.id}`)}
                     className="w-full text-white font-semibold py-3 px-5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn text-sm border"
                     style={{ background: reading.btnBg, borderColor: reading.btnBorder }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <span>{reading.isCompleted && !isComprehensive ? 'View Reading' : 'Begin Reading'}</span>
+                    <span>
+                      {needsUpgrade 
+                        ? 'Unlock Astral' 
+                        : (reading.isCompleted 
+                            ? (isComprehensive ? 'View Report' : 'View Reading') 
+                            : (isComprehensive ? 'Generate Report' : 'Begin Reading'))
+                      }
+                    </span>
                     <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                   </motion.button>
                 )}
@@ -280,6 +328,7 @@ export function Dashboard() {
             )
           })}
         </div>
+
       </motion.div>
 
       <motion.div

@@ -3,11 +3,12 @@ import { AuthForm } from './components/AuthForm'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import { Dashboard } from './components/Dashboard'
-import AstrologyChart from './components/AstrologyChart'
-import PalmReading from './components/PalmReading'
-import FaceReading from './components/FaceReading'
+import { AstrologyChart } from './components/AstrologyChart'
+import { PalmReading } from './components/PalmReading'
+import { FaceReading } from './components/FaceReading'
 import ComprehensiveAnalysis from './components/ComprehensiveAnalysis'
 import { useAuth } from './hooks/useAuth'
+import PricingPlans from './components/PricingPlans'
 
 function App() {
   const { user, loading } = useAuth()
@@ -25,13 +26,14 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {!user ? (
           <AuthForm />
         ) : (
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/pricing" element={<PricingPlans />} />
               <Route path="/astrology" element={<AstrologyChart />} />
               <Route path="/palmistry" element={<PalmReading />} />
               <Route path="/face-reading" element={<FaceReading />} />
@@ -44,4 +46,4 @@ function App() {
   )
 }
 
-export default App
+export default App;

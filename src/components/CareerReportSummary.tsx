@@ -20,7 +20,7 @@ interface Props {
   analysis: Analysis;
 }
 
-export default function CareerReportSummary({ analysis }: Props) {
+export const CareerReportSummary = ({ analysis }: Props) => {
   const top = analysis.topCareerMatches[0];
   const topStrengths = analysis.strengthsSummary.slice(0, 3);
   const topGaps = analysis.developmentAreas.slice(0, 2);
