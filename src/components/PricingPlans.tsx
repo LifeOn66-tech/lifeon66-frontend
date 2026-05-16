@@ -1,5 +1,4 @@
-// v1.0.3 - Explicit cleanup of old logic
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
