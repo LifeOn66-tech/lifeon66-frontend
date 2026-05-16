@@ -200,9 +200,13 @@ export default function PricingPlans() {
 
   const handleSocialShare = (platform: string) => {
     const receiptUrl = paymentSuccessData?.receiptUrl;
-    const shareUrl = import.meta.env.VITE_API_URL 
-      ? `${import.meta.env.VITE_API_URL}/payments/share/${paymentSuccessData?.paymentId}` 
-      : receiptUrl;
+    
+    // Clean the API URL and ensure it has the /api prefix for the share route
+    const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const cleanApiUrl = rawApiUrl.replace(/\/$/, '');
+    const apiBase = cleanApiUrl.endsWith('/api') ? cleanApiUrl : `${cleanApiUrl}/api`;
+    
+    const shareUrl = `${apiBase}/payments/share/${paymentSuccessData?.paymentId}`;
 
     const tierLabels: Record<string, string> = {
       free: 'Cosmic Explorer', premium: 'Astral', professional: 'Cosmic Master'
