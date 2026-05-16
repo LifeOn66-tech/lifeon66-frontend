@@ -327,13 +327,19 @@ export default function PricingPlans() {
 
   const handleSocialShare = (platform: string) => {
     const receiptUrl = paymentSuccessData?.receiptUrl;
+    
+    // Use the new backend route which serves the rich OpenGraph tags for WhatsApp
+    const shareUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/payments/share/${paymentSuccessData?.paymentId}` 
+      : receiptUrl;
+
     const tierLabels: Record<string, string> = {
       free: 'Cosmic Explorer', premium: 'Astral', professional: 'Cosmic Master'
     };
     const tierLabel = tierLabels[paymentSuccessData?.tier || 'free'] || paymentSuccessData?.tier || '';
 
     const message = receiptUrl
-      ? `🧾 *LifeOn66 Payment Receipt*\n\n*Plan:* ${tierLabel}\n*Amount:* ${paymentSuccessData?.currency} ${paymentSuccessData?.amount}\n*Payment ID:* ${paymentSuccessData?.paymentId}\n*Date:* ${new Date().toLocaleDateString()}\n\n📄 *Download Receipt PDF:*\n${receiptUrl}`
+      ? `🧾 *LifeOn66 Payment Receipt*\n\n*Plan:* ${tierLabel}\n*Amount:* ${paymentSuccessData?.currency} ${paymentSuccessData?.amount}\n*Payment ID:* ${paymentSuccessData?.paymentId}\n*Date:* ${new Date().toLocaleDateString()}\n\n🖼️ *View Receipt Image:*\n${shareUrl}`
       : `🧾 *LifeOn66 Payment Receipt*\n\n*Plan:* ${tierLabel}\n*Amount:* ${paymentSuccessData?.currency} ${paymentSuccessData?.amount}\n*Payment ID:* ${paymentSuccessData?.paymentId}\n*Date:* ${new Date().toLocaleDateString()}`;
 
     const text = encodeURIComponent(message);
@@ -351,7 +357,7 @@ export default function PricingPlans() {
       case 'email': {
         const emailBody = encodeURIComponent(
           `LifeOn66 Payment Receipt\n\nPlan: ${tierLabel}\nAmount: ${paymentSuccessData?.currency} ${paymentSuccessData?.amount}\nPayment ID: ${paymentSuccessData?.paymentId}\nDate: ${new Date().toLocaleDateString()}` +
-          (receiptUrl ? `\n\nDownload Receipt PDF:\n${receiptUrl}` : '')
+          (receiptUrl ? `\n\nView Receipt Image:\n${shareUrl}` : '')
         );
         window.open(`mailto:?subject=LifeOn66 Payment Receipt&body=${emailBody}`, '_blank');
         break;
@@ -399,7 +405,7 @@ export default function PricingPlans() {
                     className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors text-sm font-medium"
                   >
                     <FileText className="w-4 h-4" />
-                    View / Download Receipt PDF
+                    View Receipt Image
                   </a>
                 </div>
               )}
@@ -433,8 +439,8 @@ export default function PricingPlans() {
               >
                 <p className="text-white/40 text-xs mb-3">
                   {paymentSuccessData.receiptUrl
-                    ? '📄 Your receipt PDF will be sent as a link — tap to open and view in any chat'
-                    : '⚠️ Receipt PDF is still generating. Try again in a moment.'}
+                    ? '🖼️ Your receipt image will be sent as a link — it will preview beautifully in WhatsApp'
+                    : '⚠️ Receipt image is still generating. Try again in a moment.'}
                 </p>
                 <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex justify-center gap-4">
                   <button onClick={() => handleSocialShare('whatsapp')} className="flex flex-col items-center gap-1 group">
