@@ -85,10 +85,24 @@ export default function PricingPlans() {
 
       if (error.response) {
         // The request was made and the server responded with a status code
-        console.error('Response Data:', error.response.data);
         console.error('Response Status:', error.response.status);
+        
+        // Handle Blob errors (convert blob to text then JSON)
+        if (error.response.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const data = JSON.parse(text);
+            console.error('Parsed Blob Error Data:', data);
+            errorDetail = data.message || data.error || errorDetail;
+          } catch (e) {
+            console.error('Failed to parse error blob:', e);
+          }
+        } else {
+          console.error('Response Data:', error.response.data);
+          errorDetail = error.response.data?.message || error.response.data?.error || errorDetail;
+        }
+        
         errorTitle = `Server Error (${error.response.status})`;
-        errorDetail = error.response.data?.message || error.response.data?.error || 'The server encountered an issue.';
       } else if (error.request) {
         // The request was made but no response was received
         console.error('Request made but no response received:', error.request);
