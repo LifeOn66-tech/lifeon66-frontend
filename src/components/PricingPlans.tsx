@@ -1,4 +1,4 @@
-// v1.0.2 - Fixed deployment type errors
+// v1.0.3 - Explicit cleanup of old logic
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
