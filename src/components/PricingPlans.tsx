@@ -77,9 +77,30 @@ export default function PricingPlans() {
       window.URL.revokeObjectURL(url);
       // ... existing download logic ...
     } catch (error: any) {
-      console.error('Error generating PDF:', error);
-      const serverMsg = error.response?.data?.message || 'Failed to generate report.';
-      alert(serverMsg);
+      console.error('--- PDF GENERATION FAILURE ---');
+      console.error('Error Object:', error);
+      
+      let errorTitle = 'Report Generation Error';
+      let errorDetail = 'An unexpected error occurred.';
+
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('Response Data:', error.response.data);
+        console.error('Response Status:', error.response.status);
+        errorTitle = `Server Error (${error.response.status})`;
+        errorDetail = error.response.data?.message || error.response.data?.error || 'The server encountered an issue.';
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Request made but no response received:', error.request);
+        errorTitle = 'Connection Error';
+        errorDetail = 'Could not reach the server. Please check your internet or try again later.';
+      } else {
+        // Something happened in setting up the request
+        console.error('Request setup error:', error.message);
+        errorDetail = error.message;
+      }
+
+      alert(`${errorTitle}: ${errorDetail}`);
     } finally {
       setDownloadingTier(null);
     }
