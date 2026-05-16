@@ -186,7 +186,7 @@ export function PalmReading() {
     await new Promise(resolve => setTimeout(resolve, 4000));
     const result = generateDeepAnalysis();
     try {
-      await apiClient.post('/readings/palmistry', {
+      await apiClient.post('readings/palmistry', {
         images: {
           left: leftPalmImage || '',
           right: rightPalmImage || '',

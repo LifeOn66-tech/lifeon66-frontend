@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (token && savedUser) {
         setUser(JSON.parse(savedUser));
         try {
-          const response = await apiClient.get('/auth/me');
+          const response = await apiClient.get('auth/me');
           if (response.data.success) {
             setUser(response.data.data);
             localStorage.setItem('user', JSON.stringify(response.data.data));
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const response = await apiClient.post('/auth/register', { email, password, fullName });
+      const response = await apiClient.post('auth/register', { email, password, fullName });
       const { token, user: userData } = response.data;
       
       localStorage.setItem('token', token);
@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signIn = async (email: string, password: string) => {
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('auth/login', { email, password });
       const { token, user: userData } = response.data;
       
       localStorage.setItem('token', token);
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const syncUser = async () => {
     try {
-      const response = await apiClient.get('/auth/me');
+      const response = await apiClient.get('auth/me');
       if (response.data.success) {
         setUser(response.data.data);
         localStorage.setItem('user', JSON.stringify(response.data.data));

@@ -131,7 +131,7 @@ export function AstrologyChart() {
           tzone: new Date().getTimezoneOffset() / -60,
         }
       };
-      const apiUrl = '/readings/astrology-generate';
+      const apiUrl = 'readings/astrology-generate';
       console.log('Calling astrology API:', apiUrl);
       console.log('Request body:', requestBody);
 
@@ -161,7 +161,7 @@ export function AstrologyChart() {
       };
       
       try {
-        await apiClient.post('/readings/astrology', {
+        await apiClient.post('readings/astrology', {
           birthChartData: { planets: result.planets },
           careerHouseAnalysis: result.careerHouse,
           planetaryPeriods: result.planetaryPeriods,
