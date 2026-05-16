@@ -63,7 +63,8 @@ export default function PricingPlans() {
         fullData,
         tier
       }, {
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: 60000 // 60 seconds
       });
 
       const blob = response.data;
