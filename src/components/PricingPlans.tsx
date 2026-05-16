@@ -75,9 +75,11 @@ export default function PricingPlans() {
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
+      // ... existing download logic ...
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate report.');
+      const serverMsg = error.response?.data?.message || 'Failed to generate report.';
+      alert(serverMsg);
     } finally {
       setDownloadingTier(null);
     }
