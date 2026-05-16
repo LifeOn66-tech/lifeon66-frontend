@@ -29,8 +29,8 @@ export default function PricingPlans() {
     setDownloadingTier(tier);
     try {
       const [readingsRes, insightRes] = await Promise.all([
-        apiClient.get('/readings'),
-        apiClient.get('/readings/insight')
+        apiClient.get('readings'),
+        apiClient.get('readings/insight')
       ]);
 
       if (!readingsRes.data.success || !insightRes.data.success) {
