@@ -229,7 +229,7 @@ export function FaceReading() {
     await new Promise(resolve => setTimeout(resolve, 3500));
     const result = generateFaceAnalysis();
     try {
-      await apiClient.post('/readings/face', {
+      await apiClient.post('readings/face', {
         images: {
           center: frontFaceImage || '',
           left: leftSideImage || '',

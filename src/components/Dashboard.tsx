@@ -50,7 +50,7 @@ export function Dashboard() {
 
   const checkCompletedReadings = async () => {
     try {
-      const response = await apiClient.get('/readings');
+      const response = await apiClient.get('readings');
       if (response.data.success) {
         const { astrology, palmistry, face, insights } = response.data.data;
         setHasAstrology(astrology.length > 0);

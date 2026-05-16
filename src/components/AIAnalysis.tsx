@@ -121,7 +121,7 @@ export default function AIAnalysis() {
     setInsight(synthesizedInsight);
     
     try {
-      await apiClient.post('/readings/insight', {
+      await apiClient.post('readings/insight', {
         synthesizedRecommendation: synthesizedInsight.synthesizedRecommendation,
         topCareerPaths: synthesizedInsight.topCareerPaths,
         bestTiming: synthesizedInsight.bestTiming,

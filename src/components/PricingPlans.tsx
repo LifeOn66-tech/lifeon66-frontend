@@ -57,7 +57,7 @@ export default function PricingPlans() {
         face: face[0]
       };
 
-      const response = await apiClient.post('/reports/generate', {
+      const response = await apiClient.post('reports/generate', {
         language: 'en',
         analysis,
         fullData,
@@ -97,7 +97,7 @@ export default function PricingPlans() {
       setLoadingTier(tier);
       
       try {
-        const syncRes = await apiClient.get('/auth/me');
+        const syncRes = await apiClient.get('auth/me');
         if (syncRes.data.success) {
           const freshUser = syncRes.data.data;
           if (freshUser.subscriptionTier !== user?.subscriptionTier) {
@@ -126,7 +126,7 @@ export default function PricingPlans() {
         });
       }
 
-      const response = await apiClient.post('/payments/create-order', { tier });
+      const response = await apiClient.post('payments/create-order', { tier });
 
       if (response.data.success) {
         const { orderId, amount, currency, paymentLink } = response.data;
@@ -155,7 +155,7 @@ export default function PricingPlans() {
           handler: async (response: any) => {
             try {
               setLoadingTier(tier);
-              const verifyRes = await apiClient.post('/payments/verify-payment', {
+              const verifyRes = await apiClient.post('payments/verify-payment', {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature
