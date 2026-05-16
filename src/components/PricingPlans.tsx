@@ -25,17 +25,6 @@ export default function PricingPlans() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Preload Razorpay script immediately when the page loads so it's ready on first click.
-  useEffect(() => {
-    if (document.getElementById('razorpay-script')) return;
-    const script = document.createElement('script');
-    script.id = 'razorpay-script';
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => console.log('[Pricing] Razorpay script preloaded successfully.');
-    script.onerror = () => console.warn('[Pricing] Razorpay script failed to preload.');
-    document.body.appendChild(script);
-  }, []);
 
   const handleDownloadPdf = async (tier: string) => {
     setDownloadingTier(tier);
@@ -125,6 +114,19 @@ export default function PricingPlans() {
       }
 
       const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SmtdodyyixI88i';
+      
+      // Load Razorpay script on-demand if not already present
+      if (!(window as any).Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+          document.body.appendChild(script);
+        });
+      }
+
       const response = await apiClient.post('/payments/create-order', { tier });
 
       if (response.data.success) {
