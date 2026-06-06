@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Star as Stars, User, LogOut, Menu, X, Sparkles } from 'lucide-react'
+import { User, LogOut, Menu, X, Sparkles, Star as Stars } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Logo } from './Logo'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -111,6 +112,7 @@ export function Layout({ children }: LayoutProps) {
   const handleSignOut = async () => {
     await signOut()
     setMobileMenuOpen(false)
+    navigate('/login')
   }
 
   return (
@@ -179,20 +181,17 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <motion.div
-              className="flex items-center space-x-2"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="flex items-center hover:opacity-90 transition-opacity"
               >
-                <Stars className="w-8 h-8" style={{ color: theme.accentColor }} />
-              </motion.div>
-              <span className={`text-2xl font-bold bg-gradient-to-r ${theme.logoFrom} ${theme.logoTo} bg-clip-text text-transparent`}>
-                LifeOn66
-              </span>
+                <Logo size="md" />
+              </button>
             </motion.div>
 
             {user && (

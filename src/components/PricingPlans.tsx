@@ -4,6 +4,16 @@ import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
+import {
+  buildFullDataForReport,
+  resaveReadingsWithBase64Images,
+} from '../utils/readingSave';
+import {
+  downloadPdfBlob,
+  generateLocalReportPdf,
+  requestReportPdf,
+  wakeBackend,
+} from '../utils/reportDownload';
 
 interface PaymentSuccessData {
   paymentId: string;
@@ -24,17 +34,30 @@ export default function PricingPlans() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  const showToast = (message: string) => {
+    setToastMsg(message);
+    window.setTimeout(() => setToastMsg(null), 4000);
+  };
 
   const handleDownloadPdf = async (tier: string) => {
     setDownloadingTier(tier);
+    setErrorMsg(null);
+
     try {
+      if (syncUser) {
+        await syncUser();
+      }
+
+      showToast('Loading your readings...');
+      await wakeBackend();
+
       const [readingsRes, insightRes] = await Promise.all([
-        apiClient.get('readings'),
-        apiClient.get('readings/insight')
+        apiClient.get('readings', { timeout: 45000 }),
+        apiClient.get('readings/insight', { timeout: 45000 }),
       ]);
 
       if (!readingsRes.data.success || !insightRes.data.success) {
-        alert("Career analysis data not found. Please complete your readings first.");
+        alert('Career analysis data not found. Please complete your readings first.');
         navigate('/comprehensive');
         return;
       }
@@ -42,80 +65,56 @@ export default function PricingPlans() {
       const { astrology, palmistry, face } = readingsRes.data.data;
       const insight = insightRes.data.data;
 
+      if (!palmistry[0] || !face[0]) {
+        alert('Palm and face readings are required before downloading a report.');
+        navigate('/comprehensive');
+        return;
+      }
+
+      showToast('Saving palm and face images...');
+      const { palmImages, faceImages } = await resaveReadingsWithBase64Images(
+        palmistry[0],
+        face[0]
+      );
+
       const analysis = {
         topCareerMatches: insight.topCareerPaths,
         sixMonthPathway: insight.sixMonthPathway,
         threeYearPathway: insight.threeYearPathway,
         strengthsSummary: insight.strengths,
         developmentAreas: insight.challenges,
-        confidenceScore: insight.confidenceScore
+        confidenceScore: insight.confidenceScore,
       };
 
-      const fullData = {
-        astrology: astrology[0],
-        palmistry: palmistry[0],
-        face: face[0]
-      };
+      const fullData = buildFullDataForReport(
+        astrology[0],
+        palmistry[0],
+        face[0],
+        palmImages,
+        faceImages
+      );
 
-      const response = await apiClient.post('reports/generate', {
-        language: 'en',
-        analysis,
-        fullData,
-        tier
-      }, {
-        responseType: 'blob',
-        timeout: 60000 // 60 seconds
-      });
-
-      const blob = response.data;
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `LifeOn66_Report_${tier}_${Date.now()}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      // ... existing download logic ...
-    } catch (error: any) {
-      console.error('--- PDF GENERATION FAILURE ---');
-      console.error('Error Object:', error);
-      
-      let errorTitle = 'Report Generation Error';
-      let errorDetail = 'An unexpected error occurred.';
-
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        console.error('Response Status:', error.response.status);
-        
-        // Handle Blob errors (convert blob to text then JSON)
-        if (error.response.data instanceof Blob) {
-          try {
-            const text = await error.response.data.text();
-            const data = JSON.parse(text);
-            console.error('Parsed Blob Error Data:', data);
-            errorDetail = data.message || data.error || errorDetail;
-          } catch (e) {
-            console.error('Failed to parse error blob:', e);
-          }
-        } else {
-          console.error('Response Data:', error.response.data);
-          errorDetail = error.response.data?.message || error.response.data?.error || errorDetail;
-        }
-        
-        errorTitle = `Server Error (${error.response.status})`;
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('Request made but no response received:', error.request);
-        errorTitle = 'Connection Error';
-        errorDetail = 'Could not reach the server. Please check your internet or try again later.';
-      } else {
-        // Something happened in setting up the request
-        console.error('Request setup error:', error.message);
-        errorDetail = error.message;
+      showToast('Generating your PDF report...');
+      try {
+        const blob = await requestReportPdf({
+          language: 'en',
+          analysis,
+          fullData,
+          tier,
+        });
+        await downloadPdfBlob(blob, tier);
+        showToast('PDF downloaded successfully.');
+      } catch (serverError) {
+        console.warn('Server PDF unavailable, using local fallback.', serverError);
+        showToast('Server is slow — generating your report locally...');
+        generateLocalReportPdf(analysis, fullData, user?.fullName);
+        showToast('PDF downloaded successfully.');
       }
-
-      alert(`${errorTitle}: ${errorDetail}`);
+    } catch (error: unknown) {
+      console.error('--- PDF GENERATION FAILURE ---', error);
+      const message = error instanceof Error ? error.message : 'Could not generate your PDF report.';
+      setErrorMsg(message);
+      alert(`Report Generation Error: ${message}`);
     } finally {
       setDownloadingTier(null);
     }
@@ -200,6 +199,9 @@ export default function PricingPlans() {
               });
 
               if (verifyRes.data.success) {
+                if (syncUser) {
+                  await syncUser();
+                }
                 setPaymentSuccessData({
                   paymentId: response.razorpay_payment_id,
                   orderId: response.razorpay_order_id,

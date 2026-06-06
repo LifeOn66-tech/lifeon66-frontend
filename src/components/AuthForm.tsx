@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Star as Stars, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, AlertCircle, User } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { Logo } from './Logo'
 
 export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -40,7 +41,7 @@ export function AuthForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-cosmic-900 via-mystic-900 to-cosmic-800">
       <motion.div
         className="cosmic-card max-w-md w-full"
         initial={{ opacity: 0, y: 20 }}
@@ -55,13 +56,12 @@ export function AuthForm() {
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
           >
-            <div className="p-3 bg-gradient-to-r from-cosmic-500 to-mystic-500 rounded-full">
-              <Stars className="w-8 h-8 text-white" />
-            </div>
+            <Logo size="xl" showText={false} />
           </motion.div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cosmic-400 to-mystic-400 bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-200 bg-clip-text text-transparent mb-2">
             LifeOn66
           </h1>
+          <p className="text-amber-200/70 text-sm mb-1">Hol Life Coaching</p>
           <p className="text-white/70">
             {isSignUp ? 'Create your cosmic career journey' : 'Welcome back to your cosmic journey'}
           </p>
@@ -97,7 +97,7 @@ export function AuthForm() {
                   Full Name
                 </label>
                 <div className="relative">
-                  <Stars className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
                   <input
                     type="text"
                     value={fullName}

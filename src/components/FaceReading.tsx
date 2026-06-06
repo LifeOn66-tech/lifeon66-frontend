@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Upload, User, Brain, CheckCircle, ChevronDown, ChevronUp, BookOpen, TrendingUp, Eye, Target } from 'lucide-react';
 import apiClient from '../api/apiClient';
+import { compressImage, isBase64Image, storeFaceImages } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   FACE_SHAPES,
@@ -192,7 +193,7 @@ export function FaceReading() {
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -201,10 +202,15 @@ export function FaceReading() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        if (currentView === 'front') { setFrontFaceImage(imageData); stopCamera(); setCurrentView('left'); }
-        else if (currentView === 'left') { setLeftSideImage(imageData); stopCamera(); setCurrentView('right'); }
-        else { setRightSideImage(imageData); stopCamera(); setStep(2); }
+        try {
+          const rawImage = canvas.toDataURL('image/jpeg', 0.85);
+          const imageData = await compressImage(rawImage);
+          if (currentView === 'front') { setFrontFaceImage(imageData); stopCamera(); setCurrentView('left'); }
+          else if (currentView === 'left') { setLeftSideImage(imageData); stopCamera(); setCurrentView('right'); }
+          else { setRightSideImage(imageData); stopCamera(); setStep(2); }
+        } catch {
+          alert('Could not capture face image. Please try again.');
+        }
       }
     }
   };
@@ -213,41 +219,70 @@ export function FaceReading() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageData = e.target?.result as string;
-        if (currentView === 'front') { setFrontFaceImage(imageData); setCurrentView('left'); }
-        else if (currentView === 'left') { setLeftSideImage(imageData); setCurrentView('right'); }
-        else { setRightSideImage(imageData); setStep(2); }
+      reader.onload = async (e) => {
+        try {
+          const rawImage = e.target?.result as string;
+          if (!isBase64Image(rawImage)) {
+            alert('Invalid image format. Please upload a JPEG or PNG file.');
+            return;
+          }
+          const imageData = await compressImage(rawImage);
+          if (currentView === 'front') { setFrontFaceImage(imageData); setCurrentView('left'); }
+          else if (currentView === 'left') { setLeftSideImage(imageData); setCurrentView('right'); }
+          else { setRightSideImage(imageData); setStep(2); }
+        } catch {
+          alert('Could not process that image. Please try a different photo.');
+        }
       };
       reader.readAsDataURL(file);
     }
+    event.target.value = '';
+  };
+
+  const saveFaceReading = (images: { center: string; left: string; right: string }, result: FaceAnalysis) => {
+    apiClient.post('readings/face', {
+      images,
+      personalityTraits: result.traitScores,
+      leadershipScore: result.traitScores.leadership,
+      teamworkScore: result.traitScores.teamwork,
+      independenceScore: result.traitScores.independence,
+      careerRecommendations: result.topCareers.join(', '),
+      confidenceScore: result.confidenceScore
+    }, {
+      timeout: 120000,
+    }).catch((error: unknown) => {
+      console.error('Error saving face reading:', error);
+    });
   };
 
   const analyzeFace = async () => {
-    if (!frontFaceImage || !leftSideImage || !rightSideImage) return;
-    setIsAnalyzing(true);
-    await new Promise(resolve => setTimeout(resolve, 3500));
-    const result = generateFaceAnalysis();
-    try {
-      await apiClient.post('readings/face', {
-        images: {
-          center: frontFaceImage || '',
-          left: leftSideImage || '',
-          right: rightSideImage || ''
-        },
-        personalityTraits: result.traitScores,
-        leadershipScore: result.traitScores.leadership,
-        teamworkScore: result.traitScores.teamwork,
-        independenceScore: result.traitScores.independence,
-        careerRecommendations: result.topCareers.join(', '),
-        confidenceScore: result.confidenceScore
-      });
-    } catch (error) {
-      console.error('Error saving face reading:', error);
+    if (!frontFaceImage || !leftSideImage || !rightSideImage) {
+      alert('Please upload front, left, and right face photos before starting analysis.');
+      return;
     }
-    setAnalysis(result);
-    setIsAnalyzing(false);
-    setStep(3);
+    if (!isBase64Image(frontFaceImage) || !isBase64Image(leftSideImage) || !isBase64Image(rightSideImage)) {
+      alert('Face images must be saved before analysis. Please retake your photos.');
+      return;
+    }
+    setIsAnalyzing(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 3500));
+      const result = generateFaceAnalysis();
+      const images = {
+        center: frontFaceImage,
+        left: leftSideImage,
+        right: rightSideImage,
+      };
+      storeFaceImages(images);
+      setAnalysis(result);
+      setStep(3);
+      saveFaceReading(images, result);
+    } catch (error) {
+      console.error('Face analysis failed:', error);
+      alert('Something went wrong during analysis. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const TraitBar = ({ label, value, color = 'blue' }: { label: string; value: number; color?: string }) => {
@@ -377,11 +412,10 @@ export function FaceReading() {
     );
   }
 
-  if (!analysis) return null;
+  if (step === 3 && analysis) {
+    const shapeProfile = FACE_SHAPES[analysis.faceShape];
 
-  const shapeProfile = FACE_SHAPES[analysis.faceShape];
-
-  return (
+    return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="facereading-card-cyan">
         <div className="text-center mb-6">
@@ -669,5 +703,8 @@ export function FaceReading() {
         <button onClick={() => { setStep(1); setFrontFaceImage(null); setLeftSideImage(null); setRightSideImage(null); setCurrentView('front'); setAnalysis(null); }} className="px-6 py-3 text-white rounded-lg transition-colors border border-face-800/40" style={{ background: 'rgba(2, 18, 17, 0.5)' }} onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(45, 212, 191, 0.1)')} onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(2, 18, 17, 0.5)')}>New Reading</button>
       </div>
     </div>
-  );
+    );
+  }
+
+  return null;
 }

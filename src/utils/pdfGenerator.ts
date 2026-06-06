@@ -544,6 +544,34 @@ export const generatePDFReport = (analysis: Analysis, language: 'en' | 'hi' = 'e
       yPosition += 7;
     });
     yPosition += 10;
+
+    const palmImages = analysis.palmistryData.images;
+    if (palmImages) {
+      checkPageBreak(55);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(language === 'hi' ? 'आपके हथेली चित्र' : 'Your Palm Photos', 20, yPosition);
+      yPosition += 8;
+
+      const imageWidth = (pageWidth - 50) / 2;
+      const imageHeight = 45;
+
+      if (palmImages.left?.startsWith('data:image/')) {
+        try {
+          doc.addImage(palmImages.left, 'JPEG', 20, yPosition, imageWidth, imageHeight);
+        } catch {
+          // Skip invalid image data.
+        }
+      }
+      if (palmImages.right?.startsWith('data:image/')) {
+        try {
+          doc.addImage(palmImages.right, 'JPEG', 25 + imageWidth, yPosition, imageWidth, imageHeight);
+        } catch {
+          // Skip invalid image data.
+        }
+      }
+      yPosition += imageHeight + 12;
+    }
   }
 
   if (analysis.faceReadingData) {
@@ -563,10 +591,35 @@ export const generatePDFReport = (analysis: Analysis, language: 'en' | 'hi' = 'e
       yPosition += 7;
     });
     yPosition += 10;
-  }
 
-  addNewPage();
-  addSectionHeader(t.sixMonthPlan, [0, 100, 200]);
+    const faceImages = analysis.faceReadingData.images;
+    if (faceImages) {
+      checkPageBreak(55);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(language === 'hi' ? 'आपके चेहरे के चित्र' : 'Your Face Photos', 20, yPosition);
+      yPosition += 8;
+
+      const imageWidth = (pageWidth - 50) / 3;
+      const imageHeight = 45;
+      const slots = [
+        { src: faceImages.center, x: 20 },
+        { src: faceImages.left, x: 22 + imageWidth },
+        { src: faceImages.right, x: 24 + imageWidth * 2 },
+      ];
+
+      slots.forEach(({ src, x }) => {
+        if (src?.startsWith('data:image/')) {
+          try {
+            doc.addImage(src, 'JPEG', x, yPosition, imageWidth, imageHeight);
+          } catch {
+            // Skip invalid image data.
+          }
+        }
+      });
+      yPosition += imageHeight + 12;
+    }
+  }
 
   analysis.sixMonthPathway.forEach((step) => {
     checkPageBreak(85);

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, Upload, Hand, Scan, CheckCircle, ChevronDown, ChevronUp, BookOpen, TrendingUp } from 'lucide-react';
 import apiClient from '../api/apiClient';
+import { compressImage, isBase64Image, storePalmImages } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
 import { PALM_LINES, PALM_MOUNTS, HAND_TYPES, FINGER_ANALYSIS } from '../data/palmistryData';
 
@@ -151,7 +152,7 @@ export function PalmReading() {
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -160,9 +161,14 @@ export function PalmReading() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        if (currentPalm === 'left') { setLeftPalmImage(imageData); stopCamera(); setCurrentPalm('right'); }
-        else { setRightPalmImage(imageData); stopCamera(); setStep(2); }
+        try {
+          const rawImage = canvas.toDataURL('image/jpeg', 0.85);
+          const imageData = await compressImage(rawImage);
+          if (currentPalm === 'left') { setLeftPalmImage(imageData); stopCamera(); setCurrentPalm('right'); }
+          else { setRightPalmImage(imageData); stopCamera(); setStep(2); }
+        } catch {
+          alert('Could not capture palm image. Please try again.');
+        }
       }
     }
   };
@@ -171,39 +177,72 @@ export function PalmReading() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageData = e.target?.result as string;
-        if (currentPalm === 'left') { setLeftPalmImage(imageData); setCurrentPalm('right'); }
-        else { setRightPalmImage(imageData); setStep(2); }
+      reader.onload = async (e) => {
+        try {
+          const rawImage = e.target?.result as string;
+          if (!isBase64Image(rawImage)) {
+            alert('Invalid image format. Please upload a JPEG or PNG file.');
+            return;
+          }
+          const imageData = await compressImage(rawImage);
+          if (currentPalm === 'left') {
+            setLeftPalmImage(imageData);
+            setCurrentPalm('right');
+          } else {
+            setRightPalmImage(imageData);
+            setStep(2);
+          }
+        } catch {
+          alert('Could not process that image. Please try a different photo.');
+        }
       };
       reader.readAsDataURL(file);
     }
+    event.target.value = '';
+  };
+
+  const savePalmReading = (images: { left: string; right: string }, result: PalmAnalysis) => {
+    apiClient.post('readings/palmistry', {
+      images,
+      fateLineAnalysis: result.fateLine.description,
+      headLineAnalysis: result.headLine.description,
+      sunLineAnalysis: result.sunLine.description,
+      careerRecommendations: result.overallRecommendations,
+      confidenceScore: result.confidenceScore
+    }, {
+      timeout: 120000,
+    }).catch((error: unknown) => {
+      console.error('Error saving palm reading:', error);
+    });
   };
 
   const analyzePalm = async () => {
-    if (!leftPalmImage || !rightPalmImage) return;
-    setIsAnalyzing(true);
-    await new Promise(resolve => setTimeout(resolve, 4000));
-    const result = generateDeepAnalysis();
-    try {
-      await apiClient.post('readings/palmistry', {
-        images: {
-          left: leftPalmImage || '',
-          right: rightPalmImage || '',
-          both: ''
-        },
-        fateLineAnalysis: result.fateLine.description,
-        headLineAnalysis: result.headLine.description,
-        sunLineAnalysis: result.sunLine.description,
-        careerRecommendations: result.overallRecommendations,
-        confidenceScore: result.confidenceScore
-      });
-    } catch (error) {
-      console.error('Error saving palm reading:', error);
+    if (!leftPalmImage || !rightPalmImage) {
+      alert('Please upload both left and right palm photos before starting analysis.');
+      return;
     }
-    setAnalysis(result);
-    setIsAnalyzing(false);
-    setStep(3);
+    if (!isBase64Image(leftPalmImage) || !isBase64Image(rightPalmImage)) {
+      alert('Palm images must be saved before analysis. Please retake your photos.');
+      return;
+    }
+    setIsAnalyzing(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      const result = generateDeepAnalysis();
+      const images = {
+        left: leftPalmImage,
+        right: rightPalmImage,
+      };
+      storePalmImages(images);
+      setAnalysis(result);
+      setStep(3);
+      savePalmReading(images, result);
+    } catch (error) {
+      console.error('Palm analysis failed:', error);
+      alert('Something went wrong during analysis. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const LineDepthBar = ({ score, label }: { score: number; label: string }) => (
@@ -334,12 +373,11 @@ export function PalmReading() {
     );
   }
 
-  if (!analysis) return null;
+  if (step === 3 && analysis) {
+    const handProfile = HAND_TYPES[analysis.handType];
+    const mountProfile = PALM_MOUNTS[analysis.dominantMount];
 
-  const handProfile = HAND_TYPES[analysis.handType];
-  const mountProfile = PALM_MOUNTS[analysis.dominantMount];
-
-  return (
+    return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="palmistry-card-amber">
         <div className="text-center mb-6">
@@ -590,5 +628,8 @@ export function PalmReading() {
         <button onClick={() => { setStep(1); setLeftPalmImage(null); setRightPalmImage(null); setCurrentPalm('left'); setAnalysis(null); }} className="px-6 py-3 text-white rounded-lg transition-colors border border-palm-800/40" style={{ background: 'rgba(30, 10, 2, 0.5)' }}>New Reading</button>
       </div>
     </div>
-  );
+    );
+  }
+
+  return null;
 }
