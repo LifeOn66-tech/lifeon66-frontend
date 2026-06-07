@@ -10,6 +10,7 @@ import ComprehensiveAnalysis from './components/ComprehensiveAnalysis'
 import { useAuth } from './hooks/useAuth'
 import PricingPlans from './components/PricingPlans'
 import { Logo } from './components/Logo'
+import { Profile } from './components/Profile'
 
 function LoadingScreen() {
   return (
@@ -62,6 +63,7 @@ function App() {
             <Route path="/palmistry" element={<PalmReading />} />
             <Route path="/face-reading" element={<FaceReading />} />
             <Route path="/comprehensive" element={<ComprehensiveAnalysis />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

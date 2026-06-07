@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { Logo } from './Logo'
+import { loadGoogleScript, renderGoogleButton } from '../utils/googleAuth'
 
 export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -11,9 +12,47 @@ export function AuthForm() {
   const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
+  const googleButtonRef = useRef<HTMLDivElement>(null)
   
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+
+  const handleGoogleCredential = useCallback(async (credential: string) => {
+    setGoogleLoading(true)
+    setError('')
+    try {
+      const { error: authError } = await signInWithGoogle(credential)
+      if (authError) throw new Error(authError)
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed')
+    } finally {
+      setGoogleLoading(false)
+    }
+  }, [signInWithGoogle])
+
+  useEffect(() => {
+    if (!googleClientId || !googleButtonRef.current) return
+
+    let active = true
+
+    loadGoogleScript()
+      .then(() => {
+        if (active && googleButtonRef.current) {
+          renderGoogleButton(googleClientId, googleButtonRef.current, handleGoogleCredential)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError('Could not load Google Sign-In. Please use email and password.')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [googleClientId, handleGoogleCredential])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -169,7 +208,33 @@ export function AuthForm() {
             )}
           </motion.button>
 
-          <div className="text-center">
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-3 text-white/50 bg-[#0d0d2b]">or</span>
+            </div>
+          </div>
+
+          {googleClientId ? (
+            <div className="space-y-3">
+              <div ref={googleButtonRef} className="flex justify-center w-full min-h-[44px]" />
+              {googleLoading && (
+                <p className="text-center text-white/60 text-sm">Signing in with Google...</p>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full py-3 rounded-xl border border-white/10 bg-white/5 text-white/40 text-sm cursor-not-allowed"
+            >
+              Continue with Google (add VITE_GOOGLE_CLIENT_ID)
+            </button>
+          )}
+
+          <div className="text-center mt-6">
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}

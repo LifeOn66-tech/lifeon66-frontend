@@ -215,6 +215,7 @@ export function Layout({ children }: LayoutProps) {
                   <span>Career Report</span>
                 </motion.button>
                 <motion.button
+                  onClick={() => navigate('/profile')}
                   className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -271,7 +272,10 @@ export function Layout({ children }: LayoutProps) {
                   <Sparkles className="w-5 h-5" />
                   <span>Career Report</span>
                 </button>
-                <button className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-full">
+                <button
+                  onClick={() => { navigate('/profile'); setMobileMenuOpen(false); }}
+                  className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-full"
+                >
                   <User className="w-5 h-5" />
                   <span>Profile</span>
                 </button>

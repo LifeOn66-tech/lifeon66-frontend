@@ -13,6 +13,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ data: any; error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ data: any; error: string | null }>;
+  signInWithGoogle: (idToken: string) => Promise<{ data: any; error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
   syncUser: () => Promise<void>;
 }
@@ -78,6 +79,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const signInWithGoogle = async (idToken: string) => {
+    try {
+      const response = await apiClient.post('auth/google', {
+        idToken,
+        credential: idToken,
+      });
+      const { token, user: userData } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+
+      return { data: { user: userData }, error: null };
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return {
+          data: null,
+          error: 'Google sign-in is not enabled on the server yet. Please use email and password.',
+        };
+      }
+      return {
+        data: null,
+        error: error.response?.data?.error || error.response?.data?.message || 'Google sign-in failed',
+      };
+    }
+  };
+
   const signOut = async () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -98,7 +126,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, syncUser }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInWithGoogle, signOut, syncUser }}>
       {children}
     </AuthContext.Provider>
   );
