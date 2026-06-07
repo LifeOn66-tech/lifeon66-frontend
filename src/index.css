@@ -32,6 +32,105 @@
   }
 
   /* ========================
+     AUTH — LOGIN / SIGNUP
+  ======================== */
+  .auth-page-bg {
+    background:
+      radial-gradient(ellipse at 15% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 80%, rgba(217, 70, 239, 0.08) 0%, transparent 45%),
+      linear-gradient(160deg, #070712 0%, #0c0c1a 45%, #0a0814 100%);
+    min-height: 100vh;
+  }
+
+  .auth-card {
+    background: rgba(12, 12, 28, 0.82);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.25rem;
+    padding: 2.5rem 2rem;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+      0 24px 48px -12px rgba(0, 0, 0, 0.55);
+  }
+
+  .auth-input {
+    @apply w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/40 transition-all duration-200;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .auth-input:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .auth-input:focus {
+    outline: none;
+    border-color: rgba(251, 191, 36, 0.45);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .auth-button-primary {
+    @apply w-full rounded-xl py-3 px-6 text-sm font-semibold text-white transition-all duration-200;
+    background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+  }
+
+  .auth-button-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .auth-button-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .auth-button-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .auth-button-google {
+    @apply w-full rounded-xl py-3 px-4 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-3;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .auth-button-google:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .auth-button-google:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .auth-button-google:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .auth-divider {
+    @apply relative my-6;
+  }
+
+  .auth-divider::before {
+    content: '';
+    @apply absolute inset-0 flex items-center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    top: 50%;
+  }
+
+  .auth-divider span {
+    @apply relative px-3 text-xs font-medium uppercase tracking-wider text-white/35;
+    background: rgba(12, 12, 28, 0.95);
+  }
+
+  /* ========================
      ASTROLOGY — CELESTIAL THEME
      Deep space: midnight navy, gold stars, cosmic blue
   ======================== */
