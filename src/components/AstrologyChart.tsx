@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, Star, Sun, Sparkles, ChevronDown, ChevronUp, BookOpen, TrendingUp, Gem, Hash } from 'lucide-react';
+import { Calendar, Clock, MapPin, Star, Sun, Sparkles, ChevronDown, ChevronUp, BookOpen, TrendingUp, Gem, Hash, Users } from 'lucide-react';
+import { BirthDetails, formatGenderLabel, GENDER_OPTIONS } from '../types/astrology';
 import { format } from 'date-fns';
 import apiClient from '../api/apiClient';
 import { useNavigate } from 'react-router-dom';
@@ -75,14 +76,14 @@ const SectionCard = ({
 
 export function AstrologyChart() {
   const navigate = useNavigate();
-  const [birthData, setBirthData] = useState({ date: '', time: '', place: '' });
+  const [birthData, setBirthData] = useState<BirthDetails>({ date: '', time: '', place: '', gender: '' });
   const [reading, setReading] = useState<AstrologyReading | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState(1);
 
   const generateChart = async () => {
-    if (!birthData.date || !birthData.time || !birthData.place) {
-      alert('Please fill in all birth details');
+    if (!birthData.date || !birthData.time || !birthData.place || !birthData.gender) {
+      alert('Please fill in all birth details including gender');
       return;
     }
     setIsGenerating(true);
@@ -129,6 +130,7 @@ export function AstrologyChart() {
           lat,
           lon,
           tzone: new Date().getTimezoneOffset() / -60,
+          gender: birthData.gender,
         }
       };
       const apiUrl = 'readings/astrology-generate';
@@ -162,6 +164,10 @@ export function AstrologyChart() {
       
       try {
         await apiClient.post('readings/astrology', {
+          gender: birthData.gender,
+          birthDate: birthData.date,
+          birthTime: birthData.time,
+          birthPlace: birthData.place,
           birthChartData: { planets: result.planets },
           careerHouseAnalysis: result.careerHouse,
           planetaryPeriods: result.planetaryPeriods,
@@ -282,12 +288,42 @@ export function AstrologyChart() {
                 className="w-full astrology-input"
               />
             </div>
+            <div>
+              <label className="block text-white font-medium mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4" style={{ color: '#f0b800' }} /> Gender
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {GENDER_OPTIONS.map((option) => {
+                  const isSelected = birthData.gender === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setBirthData({ ...birthData, gender: option.value })}
+                      className={`py-3 rounded-lg text-sm font-medium transition-all border ${
+                        isSelected
+                          ? 'border-celestial-400 text-white shadow-md'
+                          : 'border-celestial-700/40 text-white/60 hover:border-celestial-500/50 hover:text-white/85'
+                      }`}
+                      style={{
+                        background: isSelected
+                          ? 'rgba(14, 154, 232, 0.25)'
+                          : 'rgba(6, 15, 30, 0.6)',
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="rounded-lg p-4 text-sm" style={{ background: 'rgba(240, 184, 0, 0.08)', border: '1px solid rgba(240, 184, 0, 0.2)', color: '#fddd76' }}>
               <p className="font-semibold mb-1">For maximum accuracy:</p>
               <ul className="space-y-1" style={{ color: 'rgba(253, 221, 118, 0.75)' }}>
                 <li>• Exact birth time is critical for house calculations</li>
                 <li>• Birth place determines Ascendant (Lagna) sign</li>
                 <li>• Calculations use Lahiri Ayanamsa (Indian standard)</li>
+                <li>• Gender helps tailor career and life-path interpretations</li>
               </ul>
             </div>
             <motion.button
@@ -321,6 +357,7 @@ export function AstrologyChart() {
           <h2 className="text-3xl font-bold text-white mb-1">Your Vedic Birth Chart</h2>
           <p className="text-blue-200">
             {format(new Date(birthData.date), 'MMMM d, yyyy')} · {birthData.time} · {birthData.place}
+            {birthData.gender ? ` · ${formatGenderLabel(birthData.gender)}` : ''}
           </p>
           {sunSign && (
             <div className="flex flex-wrap justify-center gap-3 mt-4">
@@ -643,7 +680,10 @@ export function AstrologyChart() {
           Back to Dashboard
         </button>
         <button
-          onClick={() => setStep(1)}
+          onClick={() => {
+            setStep(1);
+            setReading(null);
+          }}
           className="px-6 py-3 text-white rounded-lg transition-colors border border-celestial-700/30"
           style={{ background: 'rgba(6, 15, 30, 0.5)' }}
           onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(14, 154, 232, 0.15)')}

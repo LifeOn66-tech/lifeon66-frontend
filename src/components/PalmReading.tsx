@@ -1,6 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useCameraCapture } from '../hooks/useCameraCapture';
 import { motion } from 'framer-motion';
 import { Camera, Upload, Hand, Scan, CheckCircle, ChevronDown, ChevronUp, BookOpen, TrendingUp } from 'lucide-react';
+import { CapturedPhotoPreview, SavedPhotoThumb } from './CapturedPhotoPreview';
 import apiClient from '../api/apiClient';
 import { compressImage, isBase64Image, storePalmImages } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
@@ -133,44 +135,70 @@ export function PalmReading() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<PalmAnalysis | null>(null);
   const [step, setStep] = useState(1);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const {
+    videoRef,
+    canvasRef,
+    videoClassName,
+    isCameraActive,
+    isVideoReady,
+    error: cameraError,
+    startCamera,
+    stopCamera,
+    capturePhoto,
+    clearError: clearCameraError,
+  } = useCameraCapture('environment');
 
-  const startCamera = async () => {
+  useEffect(() => {
+    if (cameraError) {
+      alert(cameraError);
+      clearCameraError();
+    }
+  }, [cameraError, clearCameraError]);
+
+  const handleCapturePhoto = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) { videoRef.current.srcObject = stream; setIsCameraActive(true); }
-    } catch { alert('Unable to access camera. Please upload an image instead.'); }
-  };
+      const rawImage = await capturePhoto();
+      if (!rawImage) return;
 
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-      setIsCameraActive(false);
+      const imageData = await compressImage(rawImage);
+      stopCamera();
+      setPendingPreview(imageData);
+    } catch {
+      alert('Could not capture palm image. Please try again.');
     }
   };
 
-  const capturePhoto = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        try {
-          const rawImage = canvas.toDataURL('image/jpeg', 0.85);
-          const imageData = await compressImage(rawImage);
-          if (currentPalm === 'left') { setLeftPalmImage(imageData); stopCamera(); setCurrentPalm('right'); }
-          else { setRightPalmImage(imageData); stopCamera(); setStep(2); }
-        } catch {
-          alert('Could not capture palm image. Please try again.');
-        }
-      }
+  const confirmPendingPhoto = () => {
+    if (!pendingPreview) return;
+
+    if (currentPalm === 'left') {
+      setLeftPalmImage(pendingPreview);
+      setPendingPreview(null);
+      setCurrentPalm('right');
+    } else {
+      setRightPalmImage(pendingPreview);
+      setPendingPreview(null);
+      setStep(2);
     }
+  };
+
+  const discardPendingPhoto = () => {
+    setPendingPreview(null);
+  };
+
+  const removeLeftPalm = () => {
+    setLeftPalmImage(null);
+    setCurrentPalm('left');
+    setPendingPreview(null);
+  };
+
+  const removeRightPalm = () => {
+    setRightPalmImage(null);
+    setCurrentPalm('right');
+    setPendingPreview(null);
+    setStep(1);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,13 +213,8 @@ export function PalmReading() {
             return;
           }
           const imageData = await compressImage(rawImage);
-          if (currentPalm === 'left') {
-            setLeftPalmImage(imageData);
-            setCurrentPalm('right');
-          } else {
-            setRightPalmImage(imageData);
-            setStep(2);
-          }
+          stopCamera();
+          setPendingPreview(imageData);
         } catch {
           alert('Could not process that image. Please try a different photo.');
         }
@@ -275,10 +298,20 @@ export function PalmReading() {
             <p className="text-white/60 text-sm">
               {currentPalm === 'left' ? 'Step 1 of 2 — Capture your LEFT palm (inherited destiny)' : 'Step 2 of 2 — Capture your RIGHT palm (active karma)'}
             </p>
-            {leftPalmImage && (
-              <div className="mt-4 inline-flex items-center gap-2 bg-green-500/20 border border-green-500/40 px-4 py-2 rounded-full">
-                <CheckCircle className="w-4 h-4 text-green-300" />
-                <span className="text-green-300 text-sm font-medium">Left palm captured</span>
+            {(leftPalmImage || rightPalmImage) && (
+              <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
+                {leftPalmImage && (
+                  <div className="flex items-center gap-2">
+                    <SavedPhotoThumb image={leftPalmImage} label="Left palm" onRemove={removeLeftPalm} />
+                    <span className="text-green-300 text-sm font-medium">Left palm</span>
+                  </div>
+                )}
+                {rightPalmImage && (
+                  <div className="flex items-center gap-2">
+                    <SavedPhotoThumb image={rightPalmImage} label="Right palm" onRemove={removeRightPalm} />
+                    <span className="text-green-300 text-sm font-medium">Right palm</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -298,12 +331,40 @@ export function PalmReading() {
                 <Camera className="w-5 h-5 text-amber-400" />
                 Capture {currentPalm === 'left' ? 'LEFT' : 'RIGHT'} Palm
               </h3>
-              {isCameraActive ? (
+              {pendingPreview ? (
+                <CapturedPhotoPreview
+                  image={pendingPreview}
+                  title={`${currentPalm === 'left' ? 'Left' : 'Right'} palm preview`}
+                  onConfirm={confirmPendingPhoto}
+                  onRetake={discardPendingPhoto}
+                  confirmLabel="Use This Photo"
+                  accent="amber"
+                />
+              ) : isCameraActive ? (
                 <div className="space-y-4">
-                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg" />
+                  <div className="relative overflow-hidden rounded-lg bg-black aspect-video">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={videoClassName}
+                    />
+                    {!isVideoReady && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-amber-200 text-sm">
+                        Starting camera…
+                      </div>
+                    )}
+                  </div>
                   <canvas ref={canvasRef} className="hidden" />
                   <div className="flex gap-3">
-                    <button onClick={capturePhoto} className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg transition-all">Capture Photo</button>
+                    <button
+                      onClick={handleCapturePhoto}
+                      disabled={!isVideoReady}
+                      className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Capture Photo
+                    </button>
                     <button onClick={stopCamera} className="px-5 py-3 text-white rounded-lg transition-colors border border-palm-800/40" style={{ background: 'rgba(30, 10, 2, 0.5)' }}>Cancel</button>
                   </div>
                 </div>

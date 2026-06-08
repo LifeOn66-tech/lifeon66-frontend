@@ -1,6 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useCameraCapture } from '../hooks/useCameraCapture';
 import { motion } from 'framer-motion';
 import { Camera, Upload, User, Brain, CheckCircle, ChevronDown, ChevronUp, BookOpen, TrendingUp, Eye, Target } from 'lucide-react';
+import { CapturedPhotoPreview, SavedPhotoThumb } from './CapturedPhotoPreview';
 import apiClient from '../api/apiClient';
 import { compressImage, isBase64Image, storeFaceImages } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
@@ -174,45 +176,80 @@ export function FaceReading() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
   const [step, setStep] = useState(1);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const {
+    videoRef,
+    canvasRef,
+    videoClassName,
+    isCameraActive,
+    isVideoReady,
+    error: cameraError,
+    startCamera,
+    stopCamera,
+    capturePhoto,
+    clearError: clearCameraError,
+  } = useCameraCapture('user');
 
-  const startCamera = async () => {
+  useEffect(() => {
+    if (cameraError) {
+      alert(cameraError);
+      clearCameraError();
+    }
+  }, [cameraError, clearCameraError]);
+
+  const handleCapturePhoto = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      if (videoRef.current) { videoRef.current.srcObject = stream; setIsCameraActive(true); }
-    } catch { alert('Unable to access camera. Please upload an image instead.'); }
-  };
+      const rawImage = await capturePhoto();
+      if (!rawImage) return;
 
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-      setIsCameraActive(false);
+      const imageData = await compressImage(rawImage);
+      stopCamera();
+      setPendingPreview(imageData);
+    } catch {
+      alert('Could not capture face image. Please try again.');
     }
   };
 
-  const capturePhoto = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        try {
-          const rawImage = canvas.toDataURL('image/jpeg', 0.85);
-          const imageData = await compressImage(rawImage);
-          if (currentView === 'front') { setFrontFaceImage(imageData); stopCamera(); setCurrentView('left'); }
-          else if (currentView === 'left') { setLeftSideImage(imageData); stopCamera(); setCurrentView('right'); }
-          else { setRightSideImage(imageData); stopCamera(); setStep(2); }
-        } catch {
-          alert('Could not capture face image. Please try again.');
-        }
-      }
+  const confirmPendingPhoto = () => {
+    if (!pendingPreview) return;
+
+    if (currentView === 'front') {
+      setFrontFaceImage(pendingPreview);
+      setPendingPreview(null);
+      setCurrentView('left');
+    } else if (currentView === 'left') {
+      setLeftSideImage(pendingPreview);
+      setPendingPreview(null);
+      setCurrentView('right');
+    } else {
+      setRightSideImage(pendingPreview);
+      setPendingPreview(null);
+      setStep(2);
     }
+  };
+
+  const discardPendingPhoto = () => {
+    setPendingPreview(null);
+  };
+
+  const removeFrontFace = () => {
+    setFrontFaceImage(null);
+    setCurrentView('front');
+    setPendingPreview(null);
+  };
+
+  const removeLeftFace = () => {
+    setLeftSideImage(null);
+    setCurrentView('left');
+    setPendingPreview(null);
+  };
+
+  const removeRightFace = () => {
+    setRightSideImage(null);
+    setCurrentView('right');
+    setPendingPreview(null);
+    setStep(1);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,9 +264,8 @@ export function FaceReading() {
             return;
           }
           const imageData = await compressImage(rawImage);
-          if (currentView === 'front') { setFrontFaceImage(imageData); setCurrentView('left'); }
-          else if (currentView === 'left') { setLeftSideImage(imageData); setCurrentView('right'); }
-          else { setRightSideImage(imageData); setStep(2); }
+          stopCamera();
+          setPendingPreview(imageData);
         } catch {
           alert('Could not process that image. Please try a different photo.');
         }
@@ -328,7 +364,7 @@ export function FaceReading() {
             <p className="text-blue-200/80 text-sm mb-1">Classical Indian Face Reading — Physiognomy</p>
           </div>
 
-          <div className="flex gap-3 mb-6">
+          <div className="flex gap-3 mb-4">
             {progressSteps.map((s, i) => (
               <div key={s.view} className={`flex-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${s.captured ? 'bg-green-500/20 border border-green-400/40' : currentView === s.view ? 'bg-face-700/20 border border-face-400/40' : 'border border-face-800/20'}`} style={!s.captured && currentView !== s.view ? { background: 'rgba(2, 18, 17, 0.4)' } : {}}>
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${s.captured ? 'bg-green-400 text-white' : 'bg-face-800/60 text-white/60'}`}>{s.captured ? '✓' : i + 1}</div>
@@ -336,6 +372,29 @@ export function FaceReading() {
               </div>
             ))}
           </div>
+
+          {(frontFaceImage || leftSideImage || rightSideImage) && (
+            <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
+              {frontFaceImage && (
+                <div className="flex flex-col items-center gap-1">
+                  <SavedPhotoThumb image={frontFaceImage} label="Front view" onRemove={removeFrontFace} />
+                  <span className="text-green-300 text-xs">Front</span>
+                </div>
+              )}
+              {leftSideImage && (
+                <div className="flex flex-col items-center gap-1">
+                  <SavedPhotoThumb image={leftSideImage} label="Left profile" onRemove={removeLeftFace} />
+                  <span className="text-green-300 text-xs">Left</span>
+                </div>
+              )}
+              {rightSideImage && (
+                <div className="flex flex-col items-center gap-1">
+                  <SavedPhotoThumb image={rightSideImage} label="Right profile" onRemove={removeRightFace} />
+                  <span className="text-green-300 text-xs">Right</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="bg-blue-400/10 border border-blue-400/20 rounded-lg p-4 mb-6 text-sm">
             <p className="text-blue-300 font-semibold mb-1">Why three angles?</p>
@@ -357,12 +416,46 @@ export function FaceReading() {
                 {currentView === 'left' && 'Turn 90° to show your left profile — ear should be centered in frame'}
                 {currentView === 'right' && 'Turn 90° to show your right profile — ear should be centered in frame'}
               </p>
-              {isCameraActive ? (
+              {pendingPreview ? (
+                <CapturedPhotoPreview
+                  image={pendingPreview}
+                  title={
+                    currentView === 'front'
+                      ? 'Front view preview'
+                      : currentView === 'left'
+                        ? 'Left profile preview'
+                        : 'Right profile preview'
+                  }
+                  onConfirm={confirmPendingPhoto}
+                  onRetake={discardPendingPhoto}
+                  confirmLabel="Use This Photo"
+                  accent="blue"
+                />
+              ) : isCameraActive ? (
                 <div className="space-y-4">
-                  <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg transform scale-x-[-1]" />
+                  <div className="relative overflow-hidden rounded-lg bg-black aspect-video">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={videoClassName}
+                    />
+                    {!isVideoReady && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-blue-200 text-sm">
+                        Starting camera…
+                      </div>
+                    )}
+                  </div>
                   <canvas ref={canvasRef} className="hidden" />
                   <div className="flex gap-3">
-                    <button onClick={capturePhoto} className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg">Capture Photo</button>
+                    <button
+                      onClick={handleCapturePhoto}
+                      disabled={!isVideoReady}
+                      className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Capture Photo
+                    </button>
                     <button onClick={stopCamera} className="px-5 py-3 text-white rounded-lg transition-colors border border-face-800/40" style={{ background: 'rgba(2, 18, 17, 0.5)' }} onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(45, 212, 191, 0.1)')} onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(2, 18, 17, 0.5)')}>Cancel</button>
                   </div>
                 </div>

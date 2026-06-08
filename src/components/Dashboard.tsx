@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
+import { formatGenderLabel } from '../types/astrology'
 import { useState, useEffect } from 'react'
 import apiClient from '../api/apiClient'
 import { useAuth } from '../hooks/useAuth'
@@ -90,7 +91,12 @@ export function Dashboard() {
       btnBg: 'rgba(3, 97, 160, 0.6)',
       btnBorder: 'rgba(56, 181, 248, 0.4)',
       features: readingsData.astrology 
-        ? [`Sun: ${readingsData.astrology.sunSign}`, `Moon: ${readingsData.astrology.moonSign}`, `Rising: ${readingsData.astrology.risingSign}`]
+        ? [
+            `Sun: ${readingsData.astrology.sunSign}`,
+            `Moon: ${readingsData.astrology.moonSign}`,
+            `Rising: ${readingsData.astrology.risingSign}`,
+            ...(readingsData.astrology.gender ? [`Gender: ${formatGenderLabel(readingsData.astrology.gender)}`] : []),
+          ]
         : ['10th House Analysis', 'Mahadasha Career Periods', 'Sacred Yoga Combinations'],
       isCompleted: hasAstrology,
     },

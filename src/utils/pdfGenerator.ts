@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatGenderLabel, getAstrologyBirthDetails } from '../types/astrology';
 
 interface CareerMatch {
   title: string;
@@ -79,7 +80,12 @@ const translations = {
     conclusion: 'Conclusion',
     disclaimer: 'Disclaimer',
     disclaimerText: 'This report is based on ancient wisdom traditions combined with modern analytical techniques. Results should be used as guidance for self-reflection and personal development. Individual results may vary.',
-    integratedGuidance: 'Integrated Career Guidance'
+    integratedGuidance: 'Integrated Career Guidance',
+    birthDetails: 'Birth Details',
+    gender: 'Gender',
+    dateOfBirth: 'Date of Birth',
+    timeOfBirth: 'Time of Birth',
+    placeOfBirth: 'Place of Birth'
   },
   hi: {
     title: 'व्यापक करियर और जीवन ब्लूप्रिंट',
@@ -130,7 +136,12 @@ const translations = {
     conclusion: 'निष्कर्ष',
     disclaimer: 'अस्वीकरण',
     disclaimerText: 'यह रिपोर्ट प्राचीन ज्ञान परंपराओं और आधुनिक विश्लेषणात्मक तकनीकों पर आधारित है। परिणामों का उपयोग आत्म-चिंतन और व्यक्तिगत विकास के लिए मार्गदर्शन के रूप में किया जाना चाहिए। व्यक्तिगत परिणाम भिन्न हो सकते हैं।',
-    integratedGuidance: 'एकीकृत करियर मार्गदर्शन'
+    integratedGuidance: 'एकीकृत करियर मार्गदर्शन',
+    birthDetails: 'जन्म विवरण',
+    gender: 'लिंग',
+    dateOfBirth: 'जन्म तिथि',
+    timeOfBirth: 'जन्म समय',
+    placeOfBirth: 'जन्म स्थान'
   }
 };
 
@@ -376,14 +387,61 @@ export const generatePDFReport = (analysis: Analysis, language: 'en' | 'hi' = 'e
     addNewPage();
     addSectionHeader(t.astrologySection, [128, 0, 128]);
 
-    if (analysis.astrologyData.planets && analysis.astrologyData.planets.length > 0) {
+    const birthDetails = getAstrologyBirthDetails(analysis.astrologyData);
+    const hasBirthDetails = Boolean(
+      birthDetails.gender || birthDetails.date || birthDetails.time || birthDetails.place
+    );
+
+    if (hasBirthDetails) {
+      checkPageBreak(35);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(128, 0, 128);
+      doc.text(t.birthDetails, 20, yPosition);
+      yPosition += 10;
+
+      const birthRows: string[][] = [];
+      if (birthDetails.gender) {
+        birthRows.push([t.gender, formatGenderLabel(birthDetails.gender)]);
+      }
+      if (birthDetails.date) {
+        birthRows.push([t.dateOfBirth, birthDetails.date]);
+      }
+      if (birthDetails.time) {
+        birthRows.push([t.timeOfBirth, birthDetails.time]);
+      }
+      if (birthDetails.place) {
+        birthRows.push([t.placeOfBirth, birthDetails.place]);
+      }
+
+      (doc as any).autoTable({
+        startY: yPosition,
+        body: birthRows,
+        theme: 'plain',
+        margin: { left: 20, right: 20 },
+        styles: { fontSize: 10, cellPadding: 4 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 55, textColor: [75, 0, 130] },
+          1: { cellWidth: 'auto' },
+        },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    const planets =
+      analysis.astrologyData.planets ||
+      analysis.astrologyData.birthChartData?.planets ||
+      [];
+
+    if (planets.length > 0) {
       checkPageBreak(15);
       doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
       doc.text(t.planetaryPositions, 20, yPosition);
       yPosition += 10;
 
-      const planetaryData = analysis.astrologyData.planets.map((p: any) => [
+      const planetaryData = planets.map((p: any) => [
         p.name || '',
         p.sign || '',
         `${t.house} ${p.house || ''}`,
@@ -404,7 +462,12 @@ export const generatePDFReport = (analysis: Analysis, language: 'en' | 'hi' = 'e
       yPosition = (doc as any).lastAutoTable.finalY + 15;
     }
 
-    if (analysis.astrologyData.house10Details) {
+    const careerHouseText =
+      analysis.astrologyData.house10Details?.analysis ||
+      analysis.astrologyData.careerHouseAnalysis ||
+      '';
+
+    if (careerHouseText) {
       checkPageBreak(40);
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
@@ -418,7 +481,7 @@ export const generatePDFReport = (analysis: Analysis, language: 'en' | 'hi' = 'e
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-      const house10Lines = doc.splitTextToSize(analysis.astrologyData.house10Details.analysis || '', pageWidth - 40);
+      const house10Lines = doc.splitTextToSize(careerHouseText, pageWidth - 40);
       doc.text(house10Lines, 20, yPosition + 6);
       yPosition += 45;
     }
