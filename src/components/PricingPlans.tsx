@@ -4,15 +4,13 @@ import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
-import {
-  buildFullDataForReport,
-  resaveReadingsWithBase64Images,
-} from '../utils/readingSave';
+import { buildUserDetails } from '../utils/readingsApi';
+import { parseApiErrorAsync } from '../utils/apiErrors';
 import {
   downloadPdfBlob,
-  generateLocalReportPdf,
   requestReportPdf,
   wakeBackend,
+  type ReportTier,
 } from '../utils/reportDownload';
 
 interface PaymentSuccessData {
@@ -51,19 +49,21 @@ export default function PricingPlans() {
       showToast('Loading your readings...');
       await wakeBackend();
 
-      const [readingsRes, insightRes] = await Promise.all([
-        apiClient.get('readings', { timeout: 45000 }),
-        apiClient.get('readings/insight', { timeout: 45000 }),
-      ]);
+      const readingsRes = await apiClient.get('readings', { timeout: 45000 });
 
-      if (!readingsRes.data.success || !insightRes.data.success) {
+      if (!readingsRes.data.success) {
         alert('Career analysis data not found. Please complete your readings first.');
         navigate('/comprehensive');
         return;
       }
 
       const { astrology, palmistry, face } = readingsRes.data.data;
-      const insight = insightRes.data.data;
+
+      if (!astrology[0]) {
+        alert('Complete and save your birth chart before downloading a report.');
+        navigate('/astrology');
+        return;
+      }
 
       if (!palmistry[0] || !face[0]) {
         alert('Palm and face readings are required before downloading a report.');
@@ -71,50 +71,22 @@ export default function PricingPlans() {
         return;
       }
 
-      showToast('Saving palm and face images...');
-      const { palmImages, faceImages } = await resaveReadingsWithBase64Images(
-        palmistry[0],
-        face[0]
-      );
-
-      const analysis = {
-        topCareerMatches: insight.topCareerPaths,
-        sixMonthPathway: insight.sixMonthPathway,
-        threeYearPathway: insight.threeYearPathway,
-        strengthsSummary: insight.strengths,
-        developmentAreas: insight.challenges,
-        confidenceScore: insight.confidenceScore,
-      };
-
-      const fullData = buildFullDataForReport(
-        astrology[0],
-        palmistry[0],
-        face[0],
-        palmImages,
-        faceImages
-      );
+      const reportTier = tier as ReportTier;
+      const userDetails = buildUserDetails(astrology[0]);
 
       showToast('Generating your PDF report...');
-      try {
-        const blob = await requestReportPdf({
-          language: 'en',
-          analysis,
-          fullData,
-          tier,
-        });
-        await downloadPdfBlob(blob, tier);
-        showToast('PDF downloaded successfully.');
-      } catch (serverError) {
-        console.warn('Server PDF unavailable, using local fallback.', serverError);
-        showToast('Server is slow — generating your report locally...');
-        generateLocalReportPdf(analysis, fullData, user?.fullName);
-        showToast('PDF downloaded successfully.');
-      }
+      const blob = await requestReportPdf({
+        tier: reportTier,
+        userDetails,
+        language: 'en',
+      });
+      await downloadPdfBlob(blob, tier);
+      showToast('PDF downloaded successfully.');
     } catch (error: unknown) {
       console.error('--- PDF GENERATION FAILURE ---', error);
-      const message = error instanceof Error ? error.message : 'Could not generate your PDF report.';
+      const { title, message } = await parseApiErrorAsync(error);
       setErrorMsg(message);
-      alert(`Report Generation Error: ${message}`);
+      alert(`${title}: ${message}`);
     } finally {
       setDownloadingTier(null);
     }

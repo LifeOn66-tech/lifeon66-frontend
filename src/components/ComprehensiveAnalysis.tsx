@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, Target, CheckCircle, AlertCircle, Award, Briefcase, ArrowRight, Zap, Crown, Star, Shield, Rocket, Loader2 } from 'lucide-react';
 import apiClient from '../api/apiClient';
+import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
+import { parseApiError } from '../utils/apiErrors';
 
 import { CareerReportSummary } from './CareerReportSummary';
 
@@ -43,11 +45,48 @@ export default function ComprehensiveAnalysis() {
   const [selectedCareer, setSelectedCareer] = useState(0);
   const navigate = useNavigate();
 
-  const [fullData, setFullData] = useState<{ face: any, palmistry: any, astrology: any } | null>(null);
+  const [fullData, setFullData] = useState<{ face: Record<string, unknown>; palmistry: Record<string, unknown>; astrology: Record<string, unknown> } | null>(null);
+
+  const mapInsightToAnalysis = (
+    insight: Record<string, unknown>,
+    readings: { face: Record<string, unknown>; palmistry: Record<string, unknown>; astrology: Record<string, unknown> }
+  ): Analysis => {
+    const topCareerPaths = (insight.topCareerPaths || insight.topCareerMatches || []) as Array<Record<string, unknown>>;
+    return {
+      topCareerMatches: topCareerPaths.map((career) => ({
+        title: String(career.title || career.name || 'Career Path'),
+        matchScore: Number(career.matchScore ?? career.score ?? 0),
+        reasoning: String(career.reasoning || career.description || insight.synthesizedRecommendation || ''),
+        salaryRange: String(career.salaryRange || 'Varies by region'),
+        growthPotential: String(career.growthPotential || 'High'),
+      })),
+      sixMonthPathway: (insight.sixMonthPathway || []) as PathwayStep[],
+      threeYearPathway: (insight.threeYearPathway || []) as PathwayStep[],
+      strengthsSummary: (insight.strengths || insight.strengthsSummary || []) as string[],
+      developmentAreas: (insight.challenges || insight.developmentAreas || []) as string[],
+      confidenceScore: Number(insight.confidenceScore ?? 0),
+      astrologyData: readings.astrology,
+      palmistryData: readings.palmistry,
+      faceReadingData: readings.face,
+    };
+  };
 
   useEffect(() => {
     checkCompletedReadings();
   }, []);
+
+  const loadExistingInsight = async (
+    readings: { face: Record<string, unknown>; palmistry: Record<string, unknown>; astrology: Record<string, unknown> }
+  ) => {
+    try {
+      const insight = await fetchInsight();
+      if (insight) {
+        setAnalysis(mapInsightToAnalysis(insight as Record<string, unknown>, readings));
+      }
+    } catch (error) {
+      console.error('Error fetching insight:', error);
+    }
+  };
 
   const checkCompletedReadings = async () => {
     try {
@@ -57,13 +96,15 @@ export default function ComprehensiveAnalysis() {
         setHasAstrology(astrology.length > 0);
         setHasPalm(palmistry.length > 0);
         setHasFace(face.length > 0);
-        
+
         if (astrology.length > 0 && palmistry.length > 0 && face.length > 0) {
-          setFullData({
+          const readings = {
             face: face[0],
             palmistry: palmistry[0],
-            astrology: astrology[0]
-          });
+            astrology: astrology[0],
+          };
+          setFullData(readings);
+          await loadExistingInsight(readings);
         }
       }
     } catch (error) {
@@ -72,64 +113,23 @@ export default function ComprehensiveAnalysis() {
   };
 
   const generateComprehensiveAnalysis = async () => {
-    if (!hasAstrology || !hasPalm || !hasFace) return;
+    if (!hasAstrology || !hasPalm || !hasFace || !fullData) return;
 
     setIsAnalyzing(true);
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    const mockAnalysis: Analysis = {
-      topCareerMatches: [
-        {
-          title: 'Technology Project Manager',
-          matchScore: 94,
-          reasoning: 'Your analytical mind (face reading), natural leadership abilities (palm reading), and strong Mercury influence (astrology) align perfectly with tech project management.',
-          salaryRange: '$85,000 - $140,000',
-          growthPotential: 'High'
-        },
-        {
-          title: 'UX/UI Design Lead',
-          matchScore: 91,
-          reasoning: 'Creative problem-solving skills and empathy suggest excellence in user-centered design leadership.',
-          salaryRange: '$75,000 - $125,000',
-          growthPotential: 'Very High'
-        }
-      ],
-      sixMonthPathway: [],
-      threeYearPathway: [],
-      strengthsSummary: [
-        'Natural leadership abilities',
-        'Strong analytical thinking',
-        'Excellent communication',
-        'High emotional intelligence'
-      ],
-      developmentAreas: [
-        'Public speaking confidence',
-        'Delegation skills',
-        'Work-life balance'
-      ],
-      confidenceScore: 92,
-      astrologyData: fullData?.astrology,
-      palmistryData: fullData?.palmistry,
-      faceReadingData: fullData?.face
-    };
-
-    setAnalysis(mockAnalysis);
-    
     try {
-      await apiClient.post('/readings/insight', {
-        topCareerPaths: mockAnalysis.topCareerMatches,
-        synthesizedRecommendation: mockAnalysis.topCareerMatches[0].reasoning,
-        strengths: mockAnalysis.strengthsSummary,
-        challenges: mockAnalysis.developmentAreas,
-        sixMonthPathway: mockAnalysis.sixMonthPathway,
-        threeYearPathway: mockAnalysis.threeYearPathway,
-        confidenceScore: mockAnalysis.confidenceScore
+      const insight = await linkReadingsInsight({
+        astrology: fullData.astrology,
+        palmistry: fullData.palmistry,
+        face: fullData.face,
       });
+      setAnalysis(mapInsightToAnalysis(insight as Record<string, unknown>, fullData));
     } catch (error) {
-      console.error('Error saving career insight:', error);
+      console.error('Error generating comprehensive analysis:', error);
+      const { title, message } = parseApiError(error);
+      alert(`${title}: ${message}`);
+    } finally {
+      setIsAnalyzing(false);
     }
-    
-    setIsAnalyzing(false);
   };
 
   const completedCount = [hasAstrology, hasPalm, hasFace].filter(Boolean).length;

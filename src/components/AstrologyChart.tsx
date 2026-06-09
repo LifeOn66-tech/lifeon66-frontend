@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, Star, Sun, Sparkles, ChevronDown, ChevronUp, BookOpen, TrendingUp, Gem, Hash, Users } from 'lucide-react';
-import { BirthDetails, formatGenderLabel, GENDER_OPTIONS } from '../types/astrology';
 import { format } from 'date-fns';
-import apiClient from '../api/apiClient';
 import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock, MapPin, Star, Sun, Sparkles, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { BirthDetails, formatGenderLabel, GENDER_OPTIONS } from '../types/astrology';
+import apiClient from '../api/apiClient';
+import { parseApiError } from '../utils/apiErrors';
 import {
-  VEDIC_SIGN_PROFILES,
-  PLANET_CAREER_INFLUENCES,
-  HOUSE_INTERPRETATIONS,
-  DASHA_CAREER_EFFECTS,
-  YOGA_COMBINATIONS
-} from '../data/astrologyData';
+  computeVedicChart,
+  geocodeBirthPlace,
+  parseBirthDateParts,
+  estimateTimezone,
+  pickBackendDashas,
+  pickBackendList,
+  pickBackendNarrative,
+} from '../utils/vedicChart';
 
 interface Planet {
   name: string;
@@ -23,6 +26,7 @@ interface Planet {
 
 interface AstrologyReading {
   planets: Planet[];
+  chartImageDataUrl?: string;
   careerHouse: string;
   planetaryPeriods: string[];
   careerRecommendations: string;
@@ -37,7 +41,7 @@ const SectionCard = ({
   icon,
   children,
   defaultOpen = false,
-  accentColor = 'yellow'
+  accentColor = 'yellow',
 }: {
   title: string;
   icon: React.ReactNode;
@@ -50,9 +54,7 @@ const SectionCard = ({
     yellow: 'border-yellow-400/40',
     blue: 'border-blue-400/40',
     green: 'border-green-400/40',
-    pink: 'border-pink-400/40',
-    teal: 'border-teal-400/40',
-    orange: 'border-orange-400/40'
+    orange: 'border-orange-400/40',
   };
   return (
     <div className={`rounded-xl border ${borderColors[accentColor] || borderColors.yellow} overflow-hidden`} style={{ background: 'rgba(6, 15, 30, 0.6)' }}>
@@ -88,101 +90,96 @@ export function AstrologyChart() {
     }
     setIsGenerating(true);
     try {
-      const birthDate = new Date(birthData.date);
-      const [hours, minutes] = birthData.time.split(':');
+      const { year, month, day } = parseBirthDateParts(birthData.date);
+      const [hours, minutes] = birthData.time.split(':').map((part) => parseInt(part, 10));
+      const { lat, lon } = await geocodeBirthPlace(birthData.place);
+      const tzone = estimateTimezone(lon, birthData.place);
 
-      let lat = 0;
-      let lon = 0;
+      const computedChart = computeVedicChart({
+        date: birthData.date,
+        time: birthData.time,
+        lat,
+        lon,
+        place: birthData.place,
+      });
 
-      try {
-        const geocodeResponse = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(birthData.place)}&format=json&limit=1`,
-          {
-            signal: AbortSignal.timeout(8000),
-            headers: { 'Accept': 'application/json', 'User-Agent': 'AstrologyApp/1.0' }
-          }
-        );
-        if (geocodeResponse.ok) {
-          const geocodeData = await geocodeResponse.json();
-          if (geocodeData && geocodeData.length > 0) {
-            lat = parseFloat(geocodeData[0].lat);
-            lon = parseFloat(geocodeData[0].lon);
-          } else {
-            lat = 28.6139;
-            lon = 77.2090;
-          }
-        } else {
-          lat = 28.6139;
-          lon = 77.2090;
-        }
-      } catch (geoError) {
-        console.warn('Geocoding failed, using default location:', geoError);
-        lat = 28.6139;
-        lon = 77.2090;
-      }
       const requestBody = {
         birthData: {
-          day: birthDate.getDate(),
-          month: birthDate.getMonth() + 1,
-          year: birthDate.getFullYear(),
-          hour: parseInt(hours),
-          min: parseInt(minutes),
+          day,
+          month,
+          year,
+          hour: hours,
+          min: minutes,
           lat,
           lon,
-          tzone: new Date().getTimezoneOffset() / -60,
+          tzone,
           gender: birthData.gender,
-        }
+        },
       };
-      const apiUrl = 'readings/astrology-generate';
-      console.log('Calling astrology API:', apiUrl);
-      console.log('Request body:', requestBody);
 
-      const apiResponse = await apiClient.post(apiUrl, requestBody);
-      const apiData = apiResponse.data;
-
-      const planetIcons: Record<string, string> = {
-        'Sun': '☉', 'Moon': '☽', 'Mercury': '☿', 'Venus': '♀',
-        'Mars': '♂', 'Jupiter': '♃', 'Saturn': '♄', 'Rahu': '☊', 'Ketu': '☋'
-      };
-      const formattedPlanets = (apiData.planets || []).map((p: any) => ({
-        name: p.name || p.planet,
-        sign: p.sign || p.zodiac,
-        house: p.house || 1,
-        degree: p.degree || p.full_degree || 0,
-        icon: planetIcons[p.name || p.planet] || '⭐'
-      })).slice(0, 9);
-      const result: AstrologyReading = {
-        planets: formattedPlanets,
-        careerHouse: apiData.careerHouse || '',
-        planetaryPeriods: apiData.favorablePeriods || [],
-        careerRecommendations: apiData.careerRecommendations || '',
-        favorablePeriods: apiData.favorablePeriods || [],
-        houses: apiData.houses,
-        dashas: apiData.dashas,
-        yogas: apiData.yogas
-      };
-      
+      let chartImageDataUrl: string | undefined;
+      let apiData: Record<string, unknown> = {};
       try {
-        await apiClient.post('readings/astrology', {
-          gender: birthData.gender,
-          birthDate: birthData.date,
-          birthTime: birthData.time,
-          birthPlace: birthData.place,
-          birthChartData: { planets: result.planets },
-          careerHouseAnalysis: result.careerHouse,
-          planetaryPeriods: result.planetaryPeriods,
-          careerRecommendations: result.careerRecommendations,
-          favorablePeriods: result.favorablePeriods
-        });
-      } catch (saveError) {
-        console.error('Error saving astrology reading:', saveError);
+        const apiResponse = await apiClient.post('readings/astrology-generate', requestBody);
+        apiData = (apiResponse.data?.data ?? apiResponse.data) as Record<string, unknown>;
+        if (typeof apiData.chartImageDataUrl === 'string' && apiData.chartImageDataUrl) {
+          chartImageDataUrl = apiData.chartImageDataUrl;
+        }
+      } catch (apiError) {
+        console.warn('Backend astrology-generate unavailable, using computed chart only.', apiError);
       }
+
+      const careerHouse = pickBackendNarrative(
+        apiData.careerHouse || apiData.careerHouseAnalysis,
+        computedChart.careerHouse
+      );
+      const careerRecommendations = pickBackendNarrative(
+        apiData.careerRecommendations || apiData.integratedCareerGuidance,
+        computedChart.careerRecommendations
+      );
+      const favorablePeriods = pickBackendList(apiData.favorablePeriods, computedChart.favorablePeriods);
+      const dashas = pickBackendDashas(apiData.dashas, computedChart.dashas);
+      const yogas = pickBackendList(apiData.yogas, computedChart.yogas);
+
+      const result: AstrologyReading = {
+        planets: computedChart.planets,
+        chartImageDataUrl,
+        careerHouse,
+        planetaryPeriods: favorablePeriods,
+        careerRecommendations,
+        favorablePeriods,
+        houses: computedChart.houses,
+        dashas,
+        yogas,
+      };
+
+      await apiClient.post('readings/astrology', {
+        gender: birthData.gender,
+        birthDate: birthData.date,
+        birthTime: birthData.time,
+        birthPlace: birthData.place,
+        sunSign: computedChart.sunSign,
+        moonSign: computedChart.moonSign,
+        risingSign: computedChart.risingSign,
+        careerFocus: computedChart.tenthHouseSign,
+        planets: computedChart.planets,
+        houses: computedChart.houses,
+        careerHouse,
+        careerHouseAnalysis: careerHouse,
+        careerRecommendations,
+        favorablePeriods,
+        dashas,
+        yogas,
+        chartImageDataUrl,
+        birthData: requestBody.birthData,
+      });
+
       setReading(result);
       setStep(2);
     } catch (error) {
       console.error('Error generating chart:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to generate astrology reading: ${errorMessage}\n\nPlease check the console for more details.`);
+      const { title, message } = parseApiError(error);
+      alert(`${title}: ${message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -200,7 +197,7 @@ export function AstrologyChart() {
               left: '50%',
               bottom: '50%',
               height: '50%',
-              transform: `translateX(-50%) rotate(${i * 30}deg)`
+              transform: `translateX(-50%) rotate(${i * 30}deg)`,
             }}
           />
         ))}
@@ -230,22 +227,15 @@ export function AstrologyChart() {
     </div>
   );
 
-  const sunSign = reading?.planets?.find(p => p.name === 'Sun')?.sign;
-  const moonSign = reading?.planets?.find(p => p.name === 'Moon')?.sign;
+  const sunSign = reading?.planets?.find((p) => p.name === 'Sun')?.sign;
+  const moonSign = reading?.planets?.find((p) => p.name === 'Moon')?.sign;
   const ascendantSign = reading?.houses?.house_1;
   const tenthHouseSign = reading?.houses?.house_10;
-
-  const signProfile = sunSign ? VEDIC_SIGN_PROFILES[sunSign] : null;
-  const tenthHouseProfile = tenthHouseSign ? VEDIC_SIGN_PROFILES[tenthHouseSign] : null;
 
   if (step === 1) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="astrology-card"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="astrology-card">
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(240, 184, 0, 0.15)', border: '1px solid rgba(240, 184, 0, 0.3)' }}>
               <Star className="w-8 h-8" style={{ color: '#f0b800' }} />
@@ -258,35 +248,19 @@ export function AstrologyChart() {
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
                 <Calendar className="w-4 h-4" style={{ color: '#f0b800' }} /> Date of Birth
               </label>
-              <input
-                type="date"
-                value={birthData.date}
-                onChange={(e) => setBirthData({ ...birthData, date: e.target.value })}
-                className="w-full astrology-input"
-              />
+              <input type="date" value={birthData.date} onChange={(e) => setBirthData({ ...birthData, date: e.target.value })} className="w-full astrology-input" />
             </div>
             <div>
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
                 <Clock className="w-4 h-4" style={{ color: '#f0b800' }} /> Time of Birth
               </label>
-              <input
-                type="time"
-                value={birthData.time}
-                onChange={(e) => setBirthData({ ...birthData, time: e.target.value })}
-                className="w-full astrology-input"
-              />
+              <input type="time" value={birthData.time} onChange={(e) => setBirthData({ ...birthData, time: e.target.value })} className="w-full astrology-input" />
             </div>
             <div>
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
                 <MapPin className="w-4 h-4" style={{ color: '#f0b800' }} /> Place of Birth
               </label>
-              <input
-                type="text"
-                value={birthData.place}
-                onChange={(e) => setBirthData({ ...birthData, place: e.target.value })}
-                placeholder="City, Country"
-                className="w-full astrology-input"
-              />
+              <input type="text" value={birthData.place} onChange={(e) => setBirthData({ ...birthData, place: e.target.value })} placeholder="City, Country" className="w-full astrology-input" />
             </div>
             <div>
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
@@ -306,9 +280,7 @@ export function AstrologyChart() {
                           : 'border-celestial-700/40 text-white/60 hover:border-celestial-500/50 hover:text-white/85'
                       }`}
                       style={{
-                        background: isSelected
-                          ? 'rgba(14, 154, 232, 0.25)'
-                          : 'rgba(6, 15, 30, 0.6)',
+                        background: isSelected ? 'rgba(14, 154, 232, 0.25)' : 'rgba(6, 15, 30, 0.6)',
                       }}
                     >
                       {option.label}
@@ -348,15 +320,14 @@ export function AstrologyChart() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="astrology-card-gold"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="astrology-card-gold">
         <div className="text-center mb-6">
           <h2 className="text-3xl font-bold text-white mb-1">Your Vedic Birth Chart</h2>
           <p className="text-blue-200">
-            {format(new Date(birthData.date), 'MMMM d, yyyy')} · {birthData.time} · {birthData.place}
+            {(() => {
+              const { year, month, day } = parseBirthDateParts(birthData.date);
+              return format(new Date(year, month - 1, day), 'MMMM d, yyyy');
+            })()} · {birthData.time} · {birthData.place}
             {birthData.gender ? ` · ${formatGenderLabel(birthData.gender)}` : ''}
           </p>
           {sunSign && (
@@ -372,7 +343,15 @@ export function AstrologyChart() {
         {reading && (
           <div className="grid lg:grid-cols-2 gap-8 items-start">
             <div>
-              <ChartWheel planets={reading.planets} />
+              {reading.chartImageDataUrl ? (
+                <img
+                  src={reading.chartImageDataUrl}
+                  alt="Vedic Birth Chart"
+                  className="w-full max-w-md mx-auto rounded-xl shadow-lg border border-yellow-400/30"
+                />
+              ) : (
+                <ChartWheel planets={reading.planets} />
+              )}
               <div className="mt-6 grid grid-cols-3 gap-2">
                 {reading.planets.map((planet) => (
                   <div key={planet.name} className="rounded-lg p-3 text-center border border-celestial-700/30" style={{ background: 'rgba(6, 15, 30, 0.7)' }}>
@@ -386,12 +365,20 @@ export function AstrologyChart() {
             </div>
 
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl p-5 border border-yellow-400/30">
-                <h3 className="text-lg font-bold text-yellow-300 mb-2 flex items-center gap-2">
-                  <Star className="w-5 h-5" /> 10th House Career Analysis
-                </h3>
-                <p className="text-white/90 leading-relaxed">{reading.careerHouse}</p>
-              </div>
+              {reading.careerHouse && (
+                <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl p-5 border border-yellow-400/30">
+                  <h3 className="text-lg font-bold text-yellow-300 mb-2 flex items-center gap-2">
+                    <Star className="w-5 h-5" /> 10th House Career Analysis
+                  </h3>
+                  <p className="text-white/90 leading-relaxed">{reading.careerHouse}</p>
+                </div>
+              )}
+
+              {reading.careerRecommendations && (
+                <SectionCard title="Career Recommendations" icon={<Sparkles className="w-5 h-5 text-green-400" />} defaultOpen accentColor="green">
+                  <p className="text-white/80 leading-relaxed">{reading.careerRecommendations}</p>
+                </SectionCard>
+              )}
 
               {reading.dashas && reading.dashas.length > 0 && (
                 <div className="rounded-xl p-5 border border-celestial-600/30" style={{ background: 'rgba(3, 97, 160, 0.15)' }}>
@@ -424,252 +411,22 @@ export function AstrologyChart() {
                 </div>
               )}
 
-              <div className="rounded-xl p-5 border border-starlight-700/40" style={{ background: 'rgba(30, 20, 4, 0.5)' }}>
-                <h3 className="text-lg font-bold text-orange-300 mb-3">Favorable Periods</h3>
-                <div className="space-y-2">
-                  {reading.favorablePeriods.map((period, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <div className="w-2 h-2 bg-orange-400 rounded-full mt-2 flex-shrink-0" />
-                      <p className="text-white/80 text-sm">{period}</p>
-                    </div>
-                  ))}
+              {reading.favorablePeriods.length > 0 && (
+                <div className="rounded-xl p-5 border border-starlight-700/40" style={{ background: 'rgba(30, 20, 4, 0.5)' }}>
+                  <h3 className="text-lg font-bold text-orange-300 mb-3">Favorable Periods</h3>
+                  <div className="space-y-2">
+                    {reading.favorablePeriods.map((period, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full mt-2 flex-shrink-0" />
+                        <p className="text-white/80 text-sm">{period}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
-      </motion.div>
-
-      {signProfile && sunSign && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-yellow-400" />
-            Deep Career Analysis — Sun in {sunSign}
-          </h2>
-
-          <SectionCard title="Primary Career Paths" icon={<TrendingUp className="w-5 h-5 text-yellow-400" />} defaultOpen accentColor="yellow">
-            <div className="grid sm:grid-cols-2 gap-2">
-              {signProfile.primaryCareers.map((career, i) => (
-                <div key={i} className="flex items-center gap-2 bg-yellow-400/10 rounded-lg px-3 py-2">
-                  <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full flex-shrink-0" />
-                  <span className="text-white/90 text-sm">{career}</span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Natural Talents & Strengths" icon={<Star className="w-5 h-5 text-blue-400" />} accentColor="blue">
-            <div className="space-y-3">
-              {signProfile.naturalTalents.map((talent, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0 text-xs text-blue-300 font-bold">{i + 1}</div>
-                  <span className="text-white/90">{talent}</span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Work Style & Leadership" icon={<Sun className="w-5 h-5 text-orange-400" />} accentColor="orange">
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-orange-300 font-semibold mb-2">Work Style</h4>
-                <p className="text-white/80 leading-relaxed">{signProfile.workStyle}</p>
-              </div>
-              <div>
-                <h4 className="text-orange-300 font-semibold mb-2">Leadership Style</h4>
-                <p className="text-white/80 leading-relaxed">{signProfile.leadershipStyle}</p>
-              </div>
-              <div>
-                <h4 className="text-orange-300 font-semibold mb-2">Financial Tendency</h4>
-                <p className="text-white/80 leading-relaxed">{signProfile.financialTendency}</p>
-              </div>
-              <div>
-                <h4 className="text-orange-300 font-semibold mb-2">Ideal Work Environment</h4>
-                <p className="text-white/80 leading-relaxed">{signProfile.idealEnvironment}</p>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Career Challenges to Overcome" icon={<ChevronDown className="w-5 h-5 text-pink-400" />} accentColor="pink">
-            <div className="space-y-2">
-              {signProfile.careerChallenges.map((challenge, i) => (
-                <div key={i} className="flex items-start gap-3 bg-pink-400/10 rounded-lg px-4 py-3">
-                  <div className="w-2 h-2 bg-pink-400 rounded-full mt-2 flex-shrink-0" />
-                  <span className="text-white/80 text-sm">{challenge}</span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Vedic Remedies & Career Timing" icon={<Gem className="w-5 h-5 text-teal-400" />} accentColor="teal">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-teal-300 font-semibold mb-2">Power Gemstone</h4>
-                <p className="text-white/80">{signProfile.gemstone}</p>
-              </div>
-              <div>
-                <h4 className="text-teal-300 font-semibold mb-2">Lucky Numbers</h4>
-                <div className="flex gap-2">
-                  {signProfile.luckyNumbers.map(n => (
-                    <span key={n} className="w-8 h-8 bg-teal-400/20 rounded-full flex items-center justify-center text-teal-300 font-bold text-sm">{n}</span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 className="text-teal-300 font-semibold mb-2">Best Business Partners</h4>
-                <div className="flex flex-wrap gap-2">
-                  {signProfile.bestBusinessPartners.map(sign => (
-                    <span key={sign} className="bg-teal-400/10 text-teal-200 px-3 py-1 rounded-full text-sm">{sign}</span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 className="text-teal-300 font-semibold mb-2">Career Peak Years</h4>
-                <p className="text-white/80 text-sm">{signProfile.careerPeakYears}</p>
-              </div>
-            </div>
-          </SectionCard>
-        </motion.div>
-      )}
-
-      {tenthHouseProfile && tenthHouseSign && tenthHouseSign !== sunSign && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <SectionCard
-            title={`10th House in ${tenthHouseSign} — Your Professional Destiny`}
-            icon={<Hash className="w-5 h-5 text-yellow-400" />}
-            accentColor="yellow"
-          >
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-yellow-300 font-semibold mb-2">Destined Career Fields</h4>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {tenthHouseProfile.primaryCareers.map((career, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-yellow-400/10 rounded-lg px-3 py-2">
-                      <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full" />
-                      <span className="text-white/90 text-sm">{career}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 className="text-yellow-300 font-semibold mb-2">Professional Authority Style</h4>
-                <p className="text-white/80 leading-relaxed">{tenthHouseProfile.leadershipStyle}</p>
-              </div>
-            </div>
-          </SectionCard>
-        </motion.div>
-      )}
-
-      {reading?.planets && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-            <Star className="w-6 h-6 text-blue-400" />
-            Planet-by-Planet Career Influences
-          </h2>
-          <div className="space-y-3">
-            {reading.planets.filter(p => PLANET_CAREER_INFLUENCES[p.name]).map((planet) => {
-              const influence = PLANET_CAREER_INFLUENCES[planet.name];
-              const houseInterp = HOUSE_INTERPRETATIONS[planet.house];
-              return (
-                <SectionCard
-                  key={planet.name}
-                  title={`${planet.icon} ${planet.name} in ${planet.sign} — House ${planet.house}`}
-                  icon={<div />}
-                  accentColor="blue"
-                >
-                  <div className="space-y-3">
-                    <div className="bg-blue-400/10 rounded-lg p-3">
-                      <p className="text-blue-300 font-semibold text-sm mb-1">Career Domain</p>
-                      <p className="text-white/80 text-sm">{influence.career}</p>
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-green-300 font-semibold text-sm mb-2">Strengths Given</p>
-                        <ul className="space-y-1">
-                          {influence.strengths.map((s, i) => (
-                            <li key={i} className="text-white/70 text-sm flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-1.5 flex-shrink-0" />{s}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-orange-300 font-semibold text-sm mb-2">Challenges</p>
-                        <ul className="space-y-1">
-                          {influence.challenges.map((c, i) => (
-                            <li key={i} className="text-white/70 text-sm flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mt-1.5 flex-shrink-0" />{c}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                    {houseInterp && (
-                      <div className="rounded-lg p-3 border border-celestial-800/40" style={{ background: 'rgba(6, 15, 30, 0.5)' }}>
-                        <p className="text-celestial-400/60 text-xs font-semibold uppercase tracking-wider mb-1">{houseInterp.title}</p>
-                        <p className="text-white/70 text-sm">{houseInterp.career}</p>
-                      </div>
-                    )}
-                  </div>
-                </SectionCard>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-          <Sparkles className="w-6 h-6 text-green-400" />
-          Mahadasha Career Guide
-        </h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(DASHA_CAREER_EFFECTS).map(([planet, data]) => (
-            <div key={planet} className="astrology-card">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-bold">{planet} Mahadasha</h3>
-                <span className="text-white/40 text-sm">{data.duration} years</span>
-              </div>
-              <p className="text-white/70 text-sm mb-3 leading-relaxed">{data.careerEffect}</p>
-              <div className="space-y-2">
-                <p className="text-green-300 text-xs font-semibold uppercase tracking-wider">Key Opportunities</p>
-                <ul className="space-y-1">
-                  {data.opportunities.slice(0, 2).map((opp, i) => (
-                    <li key={i} className="text-white/60 text-xs flex items-start gap-2">
-                      <div className="w-1 h-1 bg-green-400 rounded-full mt-1.5 flex-shrink-0" />{opp}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-          <Hash className="w-6 h-6 text-teal-400" />
-          Sacred Yoga Combinations
-        </h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          {YOGA_COMBINATIONS.map((yoga) => (
-            <div key={yoga.name} className="rounded-xl p-5 border border-face-800/30" style={{ background: 'rgba(4, 47, 46, 0.25)' }}>
-              <div className="mb-3">
-                <h3 className="text-white font-bold">{yoga.name}</h3>
-                <p className="text-teal-300/70 text-sm">{yoga.sanskrit}</p>
-              </div>
-              <p className="text-white/70 text-sm mb-3 leading-relaxed">{yoga.effect}</p>
-              <div className="bg-teal-400/10 rounded-lg px-3 py-2">
-                <p className="text-teal-200 text-xs"><span className="font-semibold">Career path: </span>{yoga.career}</p>
-              </div>
-              <div className="flex flex-wrap gap-1 mt-3">
-                {yoga.planets.map(p => (
-                  <span key={p} className="text-celestial-300/60 text-xs px-2 py-0.5 rounded-full border border-celestial-700/30" style={{ background: 'rgba(6, 15, 30, 0.6)' }}>{p}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
       </motion.div>
 
       <div className="flex gap-4 justify-center pb-6">

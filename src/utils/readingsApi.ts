@@ -1,0 +1,100 @@
+import apiClient from '../api/apiClient';
+import { compressImage, isBase64Image } from './imageUtils';
+
+const READING_TIMEOUT = 120000;
+
+export interface UserDetails {
+  dateOfBirth: string;
+  timeOfBirth: string;
+  placeOfBirth: string;
+  gender: string;
+}
+
+export function getReadingId(reading: { _id?: string; id?: string } | null | undefined) {
+  return reading?._id || reading?.id || '';
+}
+
+export function buildUserDetails(astrologyReading: Record<string, unknown> | null | undefined): UserDetails {
+  return {
+    dateOfBirth: String(astrologyReading?.birthDate ?? astrologyReading?.dateOfBirth ?? ''),
+    timeOfBirth: String(astrologyReading?.birthTime ?? astrologyReading?.timeOfBirth ?? ''),
+    placeOfBirth: String(astrologyReading?.birthPlace ?? astrologyReading?.placeOfBirth ?? ''),
+    gender: String(astrologyReading?.gender ?? ''),
+  };
+}
+
+export async function analyzeAndSavePalm(images: { left: string; right: string }) {
+  if (!isBase64Image(images.left) || !isBase64Image(images.right)) {
+    throw new Error('Palm images must be saved as base64 before analysis.');
+  }
+
+  const compressed = {
+    left: await compressImage(images.left, 900, 0.8),
+    right: await compressImage(images.right, 900, 0.8),
+  };
+
+  const analyzeRes = await apiClient.post(
+    'readings/palmistry-analyze',
+    { images: compressed },
+    { timeout: READING_TIMEOUT }
+  );
+
+  const analysis = analyzeRes.data?.data ?? analyzeRes.data;
+
+  await apiClient.post(
+    'readings/palmistry',
+    { ...analysis, images: compressed },
+    { timeout: READING_TIMEOUT }
+  );
+
+  return analysis;
+}
+
+export async function analyzeAndSaveFace(images: { center: string; left: string; right: string }) {
+  if (!isBase64Image(images.center) || !isBase64Image(images.left) || !isBase64Image(images.right)) {
+    throw new Error('Face images must be saved as base64 before analysis.');
+  }
+
+  const compressed = {
+    center: await compressImage(images.center, 900, 0.8),
+    left: await compressImage(images.left, 900, 0.8),
+    right: await compressImage(images.right, 900, 0.8),
+  };
+
+  const analyzeRes = await apiClient.post(
+    'readings/face-analyze',
+    { images: compressed },
+    { timeout: READING_TIMEOUT }
+  );
+
+  const analysis = analyzeRes.data?.data ?? analyzeRes.data;
+
+  await apiClient.post(
+    'readings/face',
+    { ...analysis, images: compressed },
+    { timeout: READING_TIMEOUT }
+  );
+
+  return analysis;
+}
+
+export async function linkReadingsInsight(readings: {
+  astrology?: Record<string, unknown>;
+  palmistry?: Record<string, unknown>;
+  face?: Record<string, unknown>;
+}) {
+  const payload = {
+    astrologyReadingId: getReadingId(readings.astrology),
+    palmistryReadingId: getReadingId(readings.palmistry),
+    faceReadingId: getReadingId(readings.face),
+  };
+
+  const response = await apiClient.post('readings/insight', payload, { timeout: READING_TIMEOUT });
+  return response.data?.data ?? response.data;
+}
+
+export async function fetchInsight() {
+  const response = await apiClient.get('readings/insight', { timeout: 45000 });
+  if (!response.data?.success) return null;
+  return response.data.data;
+}

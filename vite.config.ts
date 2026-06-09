@@ -19,7 +19,6 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['framer-motion', 'lucide-react'],
-          pdf: ['jspdf', 'jspdf-autotable', 'html2canvas']
         }
       }
     }

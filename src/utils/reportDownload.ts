@@ -1,9 +1,18 @@
 import type { AxiosError } from 'axios';
 import apiClient from '../api/apiClient';
-import { generatePDFReport } from './pdfGenerator';
+import type { UserDetails } from './readingsApi';
+import { parseApiErrorAsync } from './apiErrors';
 
 const PDF_TIMEOUT_MS = 120000;
 const PDF_MAX_RETRIES = 1;
+
+export type ReportTier = 'free' | 'premium' | 'professional';
+
+const REPORT_ENDPOINTS: Record<ReportTier, string> = {
+  free: 'reports/generate',
+  premium: 'reports/career-blueprint',
+  professional: 'reports/cosmic-master',
+};
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -37,11 +46,11 @@ export async function downloadPdfBlob(blob: Blob, tier: string) {
 }
 
 export async function requestReportPdf(payload: {
-  language: string;
-  analysis: Record<string, unknown>;
-  fullData: Record<string, unknown>;
-  tier: string;
+  tier: ReportTier;
+  userDetails: UserDetails;
+  language?: string;
 }) {
+  const endpoint = REPORT_ENDPOINTS[payload.tier];
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= PDF_MAX_RETRIES; attempt += 1) {
@@ -51,10 +60,18 @@ export async function requestReportPdf(payload: {
         await sleep(3000);
       }
 
-      const response = await apiClient.post('reports/generate', payload, {
-        responseType: 'blob',
-        timeout: PDF_TIMEOUT_MS,
-      });
+      const response = await apiClient.post(
+        endpoint,
+        {
+          tier: payload.tier,
+          language: payload.language ?? 'en',
+          userDetails: payload.userDetails,
+        },
+        {
+          responseType: 'blob',
+          timeout: PDF_TIMEOUT_MS,
+        }
+      );
 
       return response.data as Blob;
     } catch (error) {
@@ -75,91 +92,4 @@ export async function requestReportPdf(payload: {
   throw lastError;
 }
 
-export function generateLocalReportPdf(
-  analysis: {
-    topCareerMatches: unknown;
-    sixMonthPathway: unknown;
-    threeYearPathway: unknown;
-    strengthsSummary: unknown;
-    developmentAreas: unknown;
-    confidenceScore: unknown;
-  },
-  fullData: {
-    astrology: unknown;
-    palmistry: unknown;
-    face: unknown;
-  },
-  userName?: string
-) {
-  generatePDFReport(
-    {
-      topCareerMatches: analysis.topCareerMatches as never,
-      sixMonthPathway: analysis.sixMonthPathway as never,
-      threeYearPathway: analysis.threeYearPathway as never,
-      strengthsSummary: analysis.strengthsSummary as never,
-      developmentAreas: analysis.developmentAreas as never,
-      confidenceScore: analysis.confidenceScore as number,
-      astrologyData: fullData.astrology,
-      palmistryData: fullData.palmistry,
-      faceReadingData: fullData.face,
-    },
-    'en',
-    userName
-  );
-}
-
-export async function formatDownloadError(error: unknown): Promise<{ title: string; detail: string }> {
-  const axiosError = error as AxiosError<{ message?: string; error?: string }>;
-
-  if (axiosError.response) {
-    let detail = 'PDF generation failed on the server.';
-
-    if (axiosError.response.data instanceof Blob) {
-      try {
-        const text = await axiosError.response.data.text();
-        const data = JSON.parse(text);
-        detail = data.message || data.error || detail;
-      } catch {
-        // Keep default detail.
-      }
-    } else if (axiosError.response.data) {
-      detail =
-        axiosError.response.data.message ||
-        axiosError.response.data.error ||
-        detail;
-    }
-
-    return {
-      title: `Server Error (${axiosError.response.status})`,
-      detail,
-    };
-  }
-
-  if (axiosError.request) {
-    if (axiosError.code === 'ECONNABORTED') {
-      return {
-        title: 'Request Timed Out',
-        detail:
-          'The report server took too long to respond. A local copy of your report will be downloaded instead.',
-      };
-    }
-
-    return {
-      title: 'Connection Error',
-      detail:
-        'Could not reach the report server. A local copy of your report will be downloaded instead.',
-    };
-  }
-
-  if (error instanceof Error) {
-    return {
-      title: 'Report Generation Error',
-      detail: error.message,
-    };
-  }
-
-  return {
-    title: 'Report Generation Error',
-    detail: 'An unexpected error occurred while generating your PDF.',
-  };
-}
+export { parseApiErrorAsync as formatDownloadError };
