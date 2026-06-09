@@ -43,9 +43,15 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const requestUrl = error.config?.url || '';
-      const isReadingSave = requestUrl.includes('readings/palmistry') || requestUrl.includes('readings/face');
+      const skipAuthRedirect =
+        requestUrl.includes('readings/palmistry') ||
+        requestUrl.includes('readings/face') ||
+        requestUrl.includes('readings/insight') ||
+        requestUrl.includes('reports/') ||
+        requestUrl === 'readings' ||
+        requestUrl.endsWith('/readings');
 
-      if (!isReadingSave) {
+      if (!skipAuthRedirect) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';

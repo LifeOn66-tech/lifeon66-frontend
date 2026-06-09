@@ -3,12 +3,19 @@ import {
   compressImage,
   countValidImages,
   FACE_IMAGE_KEYS,
+  isBase64Image,
   PALM_IMAGE_KEYS,
   resolveFaceImages,
   resolvePalmImages,
 } from './imageUtils';
 
-const READING_SAVE_TIMEOUT = 120000;
+const READING_SAVE_TIMEOUT = 180000;
+
+function hasValidImagesInRecord(images: unknown, keys: readonly string[]): boolean {
+  if (!images || typeof images !== 'object') return false;
+  const map = images as Record<string, string>;
+  return keys.every((key) => isBase64Image(map[key]));
+}
 
 async function compressForUpload(images: Record<string, string>): Promise<Record<string, string>> {
   const entries = await Promise.all(
@@ -42,42 +49,59 @@ export async function resaveReadingsWithBase64Images(
   const palmSunLine = palmRecord.sunLine as Record<string, unknown> | undefined;
   const faceTraits = faceRecord.traitScores as Record<string, unknown> | undefined;
 
-  await apiClient.post(
-    'readings/palmistry',
-    {
-      images: {
-        left: compressedPalmImages.left,
-        right: compressedPalmImages.right,
+  await Promise.all([
+    apiClient.post(
+      'readings/palmistry',
+      {
+        images: {
+          left: compressedPalmImages.left,
+          right: compressedPalmImages.right,
+        },
+        fateLineAnalysis: palmRecord.fateLineAnalysis || palmFateLine?.description || '',
+        headLineAnalysis: palmRecord.headLineAnalysis || palmHeadLine?.description || '',
+        sunLineAnalysis: palmRecord.sunLineAnalysis || palmSunLine?.description || '',
+        careerRecommendations: palmRecord.careerRecommendations || palmRecord.overallRecommendations || '',
+        confidenceScore: Number(palmRecord.confidenceScore ?? 85),
       },
-      fateLineAnalysis: palmRecord.fateLineAnalysis || palmFateLine?.description || '',
-      headLineAnalysis: palmRecord.headLineAnalysis || palmHeadLine?.description || '',
-      sunLineAnalysis: palmRecord.sunLineAnalysis || palmSunLine?.description || '',
-      careerRecommendations: palmRecord.careerRecommendations || palmRecord.overallRecommendations || '',
-      confidenceScore: Number(palmRecord.confidenceScore ?? 85),
-    },
-    { timeout: READING_SAVE_TIMEOUT }
-  );
-
-  await apiClient.post(
-    'readings/face',
-    {
-      images: {
-        center: compressedFaceImages.center,
-        left: compressedFaceImages.left,
-        right: compressedFaceImages.right,
+      { timeout: READING_SAVE_TIMEOUT }
+    ),
+    apiClient.post(
+      'readings/face',
+      {
+        images: {
+          center: compressedFaceImages.center,
+          left: compressedFaceImages.left,
+          right: compressedFaceImages.right,
+        },
+        personalityTraits: faceRecord.personalityTraits || faceTraits || {},
+        leadershipScore: Number(faceRecord.leadershipScore ?? faceTraits?.leadership ?? 80),
+        teamworkScore: Number(faceRecord.teamworkScore ?? faceTraits?.teamwork ?? 80),
+        independenceScore: Number(faceRecord.independenceScore ?? faceTraits?.independence ?? 80),
+        careerRecommendations: faceRecord.careerRecommendations || '',
+        confidenceScore: Number(faceRecord.confidenceScore ?? 85),
       },
-      personalityTraits: faceRecord.personalityTraits || faceTraits || {},
-      leadershipScore: Number(faceRecord.leadershipScore ?? faceTraits?.leadership ?? 80),
-      teamworkScore: Number(faceRecord.teamworkScore ?? faceTraits?.teamwork ?? 80),
-      independenceScore: Number(faceRecord.independenceScore ?? faceTraits?.independence ?? 80),
-      careerRecommendations: faceRecord.careerRecommendations || '',
-      confidenceScore: Number(faceRecord.confidenceScore ?? 85),
-    },
-    { timeout: READING_SAVE_TIMEOUT }
-  );
+      { timeout: READING_SAVE_TIMEOUT }
+    ),
+  ]);
 
   return {
     palmImages: compressedPalmImages,
     faceImages: compressedFaceImages,
   };
+}
+
+/** Re-save only when DB is missing valid base64 images (avoids slow duplicate uploads). */
+export async function ensureReadingsReadyForReport(
+  palmData: Record<string, unknown>,
+  faceData: Record<string, unknown>
+) {
+  const dbReady =
+    hasValidImagesInRecord(palmData?.images, PALM_IMAGE_KEYS) &&
+    hasValidImagesInRecord(faceData?.images, FACE_IMAGE_KEYS);
+
+  if (dbReady) {
+    return;
+  }
+
+  await resaveReadingsWithBase64Images(palmData, faceData);
 }

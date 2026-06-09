@@ -63,10 +63,11 @@ export function parseApiError(error: unknown): ApiErrorInfo {
     };
   }
 
-  if (axiosError.code === 'ECONNABORTED') {
+  if (axiosError.code === 'ECONNABORTED' || detail.includes('timeout')) {
     return {
       title: 'Request Timed Out',
-      message: 'The server took too long to respond. Please try again.',
+      message:
+        'The server took too long to respond (Render cold start). Wait a moment and click Download Report again.',
     };
   }
 

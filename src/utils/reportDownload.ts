@@ -1,10 +1,14 @@
 import type { AxiosError } from 'axios';
 import apiClient from '../api/apiClient';
-import type { UserDetails } from './readingsApi';
+import { buildUserDetails, linkReadingsInsightWithRetry, type UserDetails } from './readingsApi';
+import { ensureReadingsReadyForReport } from './readingSave';
 import { parseApiErrorAsync } from './apiErrors';
 
-const PDF_TIMEOUT_MS = 180000;
-const PDF_MAX_RETRIES = 2;
+const PDF_TIMEOUT_MS = 240000;
+const PDF_MAX_RETRIES = 3;
+const PREP_TIMEOUT_MS = 180000;
+const PREP_MAX_RETRIES = 3;
+const WAKE_TIMEOUT_MS = 120000;
 
 export type ReportTier = 'free' | 'premium' | 'professional';
 
@@ -16,6 +20,16 @@ const REPORT_ENDPOINTS: Record<ReportTier, string> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function isRetryableNetworkError(error: unknown) {
+  const axiosError = error as AxiosError;
+  return (
+    !axiosError.response &&
+    (axiosError.code === 'ECONNABORTED' ||
+      axiosError.message.includes('Network Error') ||
+      axiosError.message.includes('timeout'))
+  );
+}
+
 export function normalizeReportTier(tier: string | null | undefined): ReportTier {
   const value = String(tier || 'free').toLowerCase();
   if (value === 'premium' || value === 'professional') {
@@ -25,11 +39,46 @@ export function normalizeReportTier(tier: string | null | undefined): ReportTier
 }
 
 export async function wakeBackend() {
-  try {
-    await apiClient.get('auth/me', { timeout: 45000 });
-  } catch {
-    // Render cold start may fail once; retry handles follow-up.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await apiClient.get('auth/me', { timeout: WAKE_TIMEOUT_MS });
+      return;
+    } catch {
+      if (attempt < 2) {
+        await sleep(3000);
+      }
+    }
   }
+}
+
+export async function fetchReadingsForReport() {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= PREP_MAX_RETRIES; attempt += 1) {
+    try {
+      if (attempt > 0) {
+        await wakeBackend();
+        await sleep(3000);
+      }
+
+      const response = await apiClient.get('readings', { timeout: PREP_TIMEOUT_MS });
+      if (!response.data?.success) {
+        throw new Error('Could not load your saved readings.');
+      }
+      return response.data.data as {
+        astrology: Record<string, unknown>[];
+        palmistry: Record<string, unknown>[];
+        face: Record<string, unknown>[];
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableNetworkError(error) || attempt === PREP_MAX_RETRIES) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function assertPdfBlob(blob: Blob): Promise<Blob> {
@@ -79,7 +128,7 @@ export async function requestReportPdf(payload: {
     try {
       if (attempt > 0) {
         await wakeBackend();
-        await sleep(3000);
+        await sleep(4000);
       }
 
       const response = await apiClient.post(
@@ -111,19 +160,67 @@ export async function requestReportPdf(payload: {
         }
       }
 
-      const isRetryable =
-        !axiosError.response &&
-        (axiosError.code === 'ECONNABORTED' ||
-          axiosError.message.includes('Network Error') ||
-          axiosError.message.includes('timeout'));
-
-      if (!isRetryable || attempt === PDF_MAX_RETRIES) {
+      if (!isRetryableNetworkError(error) || attempt === PDF_MAX_RETRIES) {
         throw error;
       }
     }
   }
 
   throw lastError;
+}
+
+export interface DownloadCareerReportResult {
+  blob: Blob;
+  tier: ReportTier;
+}
+
+export async function downloadCareerReport(
+  tier: string,
+  onProgress?: (message: string) => void
+): Promise<DownloadCareerReportResult> {
+  const progress = onProgress ?? (() => {});
+  const reportTier = normalizeReportTier(tier);
+
+  progress('Waking server — first download may take 2–3 minutes...');
+  await wakeBackend();
+
+  progress('Loading your readings...');
+  const { astrology, palmistry, face } = await fetchReadingsForReport();
+
+  if (!astrology[0]) {
+    throw new Error('Complete and save your birth chart before downloading a report.');
+  }
+  if (!palmistry[0] || !face[0]) {
+    throw new Error('Palm and face readings are required before downloading a report.');
+  }
+
+  const userDetails = buildUserDetails(astrology[0]);
+  if (!userDetails.dateOfBirth || !userDetails.timeOfBirth || !userDetails.placeOfBirth || !userDetails.gender) {
+    throw new Error('Your birth chart is missing required details. Please regenerate your chart.');
+  }
+
+  progress('Preparing images for your report...');
+  await ensureReadingsReadyForReport(palmistry[0], face[0]);
+
+  progress('Linking your career analysis...');
+  try {
+    await linkReadingsInsightWithRetry({
+      astrology: astrology[0],
+      palmistry: palmistry[0],
+      face: face[0],
+    });
+  } catch (insightError) {
+    console.warn('Insight link skipped:', insightError);
+  }
+
+  progress('Generating PDF — please keep this tab open...');
+  const blob = await requestReportPdf({
+    tier: reportTier,
+    userDetails,
+    language: 'en',
+  });
+
+  return { blob, tier: reportTier };
 }
 
 export { parseApiErrorAsync as formatDownloadError };

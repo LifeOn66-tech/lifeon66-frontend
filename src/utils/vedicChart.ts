@@ -44,6 +44,11 @@ export const RASHI_ABBR: Record<string, string> = {
   Pisces: 'Pi',
 };
 
+export function getSignNumber(signName: string): number {
+  const index = RASHI_NAMES.indexOf(signName);
+  return index >= 0 ? index + 1 : 0;
+}
+
 export function getHouseSigns(ascendantSign: string): Record<number, string> {
   const ascIndex = RASHI_NAMES.indexOf(ascendantSign);
   if (ascIndex < 0) return {};

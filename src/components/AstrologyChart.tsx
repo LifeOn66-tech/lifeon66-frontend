@@ -118,14 +118,10 @@ export function AstrologyChart() {
         },
       };
 
-      let chartImageDataUrl: string | undefined;
       let apiData: Record<string, unknown> = {};
       try {
         const apiResponse = await apiClient.post('readings/astrology-generate', requestBody);
         apiData = (apiResponse.data?.data ?? apiResponse.data) as Record<string, unknown>;
-        if (typeof apiData.chartImageDataUrl === 'string' && apiData.chartImageDataUrl) {
-          chartImageDataUrl = apiData.chartImageDataUrl;
-        }
       } catch (apiError) {
         console.warn('Backend astrology-generate unavailable, using computed chart only.', apiError);
       }
@@ -142,8 +138,7 @@ export function AstrologyChart() {
       const dashas = pickBackendDashas(apiData.dashas, computedChart.dashas);
       const yogas = pickBackendList(apiData.yogas, computedChart.yogas);
 
-      const localChartImage = northIndianChartToDataUrl(computedChart.planets, computedChart.risingSign);
-      const finalChartImage = chartImageDataUrl || localChartImage;
+      const finalChartImage = northIndianChartToDataUrl(computedChart.planets, computedChart.risingSign);
 
       const result: AstrologyReading = {
         planets: computedChart.planets,

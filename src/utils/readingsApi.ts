@@ -93,6 +93,25 @@ export async function linkReadingsInsight(readings: {
   return response.data?.data ?? response.data;
 }
 
+export async function linkReadingsInsightWithRetry(readings: {
+  astrology?: Record<string, unknown>;
+  palmistry?: Record<string, unknown>;
+  face?: Record<string, unknown>;
+}) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await linkReadingsInsight(readings);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export async function fetchInsight() {
   const response = await apiClient.get('readings/insight', { timeout: 45000 });
   if (!response.data?.success) return null;

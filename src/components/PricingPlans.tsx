@@ -4,15 +4,8 @@ import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
-import { buildUserDetails, linkReadingsInsight } from '../utils/readingsApi';
 import { parseApiErrorAsync } from '../utils/apiErrors';
-import { resaveReadingsWithBase64Images } from '../utils/readingSave';
-import {
-  downloadPdfBlob,
-  normalizeReportTier,
-  requestReportPdf,
-  wakeBackend,
-} from '../utils/reportDownload';
+import { downloadCareerReport, downloadPdfBlob } from '../utils/reportDownload';
 
 interface PaymentSuccessData {
   paymentId: string;
@@ -43,64 +36,7 @@ export default function PricingPlans() {
     setErrorMsg(null);
 
     try {
-      if (syncUser) {
-        await syncUser();
-      }
-
-      showToast('Loading your readings...');
-      await wakeBackend();
-
-      const readingsRes = await apiClient.get('readings', { timeout: 45000 });
-
-      if (!readingsRes.data.success) {
-        alert('Career analysis data not found. Please complete your readings first.');
-        navigate('/comprehensive');
-        return;
-      }
-
-      const { astrology, palmistry, face } = readingsRes.data.data;
-
-      if (!astrology[0]) {
-        alert('Complete and save your birth chart before downloading a report.');
-        navigate('/astrology');
-        return;
-      }
-
-      if (!palmistry[0] || !face[0]) {
-        alert('Palm and face readings are required before downloading a report.');
-        navigate('/comprehensive');
-        return;
-      }
-
-      const userDetails = buildUserDetails(astrology[0]);
-      if (!userDetails.dateOfBirth || !userDetails.timeOfBirth || !userDetails.placeOfBirth || !userDetails.gender) {
-        alert('Your birth chart is missing required details. Please regenerate your chart.');
-        navigate('/astrology');
-        return;
-      }
-
-      showToast('Syncing palm and face images...');
-      await resaveReadingsWithBase64Images(palmistry[0], face[0]);
-
-      showToast('Linking your career analysis...');
-      try {
-        await linkReadingsInsight({
-          astrology: astrology[0],
-          palmistry: palmistry[0],
-          face: face[0],
-        });
-      } catch (insightError) {
-        console.warn('Insight link skipped:', insightError);
-      }
-
-      const reportTier = normalizeReportTier(tier);
-
-      showToast('Generating your PDF report...');
-      const blob = await requestReportPdf({
-        tier: reportTier,
-        userDetails,
-        language: 'en',
-      });
+      const { blob } = await downloadCareerReport(tier, showToast);
       await downloadPdfBlob(blob, tier);
       showToast('PDF downloaded successfully.');
     } catch (error: unknown) {
@@ -112,6 +48,12 @@ export default function PricingPlans() {
           : await parseApiErrorAsync(error);
       setErrorMsg(message);
       alert(`${title}: ${message}`);
+
+      if (message.includes('birth chart')) {
+        navigate('/astrology');
+      } else if (message.includes('Palm and face')) {
+        navigate('/comprehensive');
+      }
     } finally {
       setDownloadingTier(null);
     }
