@@ -4,13 +4,14 @@ import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
-import { buildUserDetails } from '../utils/readingsApi';
+import { buildUserDetails, linkReadingsInsight } from '../utils/readingsApi';
 import { parseApiErrorAsync } from '../utils/apiErrors';
+import { resaveReadingsWithBase64Images } from '../utils/readingSave';
 import {
   downloadPdfBlob,
+  normalizeReportTier,
   requestReportPdf,
   wakeBackend,
-  type ReportTier,
 } from '../utils/reportDownload';
 
 interface PaymentSuccessData {
@@ -71,8 +72,28 @@ export default function PricingPlans() {
         return;
       }
 
-      const reportTier = tier as ReportTier;
       const userDetails = buildUserDetails(astrology[0]);
+      if (!userDetails.dateOfBirth || !userDetails.timeOfBirth || !userDetails.placeOfBirth || !userDetails.gender) {
+        alert('Your birth chart is missing required details. Please regenerate your chart.');
+        navigate('/astrology');
+        return;
+      }
+
+      showToast('Syncing palm and face images...');
+      await resaveReadingsWithBase64Images(palmistry[0], face[0]);
+
+      showToast('Linking your career analysis...');
+      try {
+        await linkReadingsInsight({
+          astrology: astrology[0],
+          palmistry: palmistry[0],
+          face: face[0],
+        });
+      } catch (insightError) {
+        console.warn('Insight link skipped:', insightError);
+      }
+
+      const reportTier = normalizeReportTier(tier);
 
       showToast('Generating your PDF report...');
       const blob = await requestReportPdf({
@@ -84,7 +105,11 @@ export default function PricingPlans() {
       showToast('PDF downloaded successfully.');
     } catch (error: unknown) {
       console.error('--- PDF GENERATION FAILURE ---', error);
-      const { title, message } = await parseApiErrorAsync(error);
+      const axiosError = error as { response?: unknown };
+      const { title, message } =
+        error instanceof Error && !axiosError.response
+          ? { title: 'Report Download Error', message: error.message }
+          : await parseApiErrorAsync(error);
       setErrorMsg(message);
       alert(`${title}: ${message}`);
     } finally {

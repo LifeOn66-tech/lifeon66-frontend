@@ -32,7 +32,7 @@ export function Dashboard() {
     checkCompletedReadings()
     const interval = setInterval(() => {
       checkCompletedReadings()
-    }, 2000)
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 

@@ -3,8 +3,8 @@ import apiClient from '../api/apiClient';
 import type { UserDetails } from './readingsApi';
 import { parseApiErrorAsync } from './apiErrors';
 
-const PDF_TIMEOUT_MS = 120000;
-const PDF_MAX_RETRIES = 1;
+const PDF_TIMEOUT_MS = 180000;
+const PDF_MAX_RETRIES = 2;
 
 export type ReportTier = 'free' | 'premium' | 'professional';
 
@@ -16,6 +16,14 @@ const REPORT_ENDPOINTS: Record<ReportTier, string> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export function normalizeReportTier(tier: string | null | undefined): ReportTier {
+  const value = String(tier || 'free').toLowerCase();
+  if (value === 'premium' || value === 'professional') {
+    return value;
+  }
+  return 'free';
+}
+
 export async function wakeBackend() {
   try {
     await apiClient.get('auth/me', { timeout: 45000 });
@@ -24,18 +32,32 @@ export async function wakeBackend() {
   }
 }
 
-export async function downloadPdfBlob(blob: Blob, tier: string) {
+async function assertPdfBlob(blob: Blob): Promise<Blob> {
   if (!blob || blob.size < 100) {
     throw new Error('The server returned an empty PDF file.');
   }
 
-  if (blob.type === 'application/json') {
-    const text = await blob.text();
-    const data = JSON.parse(text);
-    throw new Error(data.message || data.error || 'PDF generation failed.');
+  const header = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+  if (header.startsWith('%PDF')) {
+    return blob;
   }
 
-  const url = window.URL.createObjectURL(blob);
+  const text = await blob.text();
+  try {
+    const data = JSON.parse(text) as { message?: string; error?: string };
+    throw new Error(data.message || data.error || 'PDF generation failed on the server.');
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('The server did not return a valid PDF file.');
+  }
+}
+
+export async function downloadPdfBlob(blob: Blob, tier: string) {
+  const pdfBlob = await assertPdfBlob(blob);
+
+  const url = window.URL.createObjectURL(pdfBlob);
   const link = document.createElement('a');
   link.href = url;
   link.setAttribute('download', `LifeOn66_Report_${tier}_${Date.now()}.pdf`);
@@ -73,10 +95,22 @@ export async function requestReportPdf(payload: {
         }
       );
 
-      return response.data as Blob;
+      return await assertPdfBlob(response.data as Blob);
     } catch (error) {
       lastError = error;
       const axiosError = error as AxiosError;
+      if (axiosError.response?.data instanceof Blob) {
+        try {
+          const text = await axiosError.response.data.text();
+          const data = JSON.parse(text) as { message?: string; error?: string };
+          throw new Error(data.message || data.error || 'PDF generation failed on the server.');
+        } catch (parseError) {
+          if (parseError instanceof Error && parseError.message !== 'Unexpected token') {
+            throw parseError;
+          }
+        }
+      }
+
       const isRetryable =
         !axiosError.response &&
         (axiosError.code === 'ECONNABORTED' ||

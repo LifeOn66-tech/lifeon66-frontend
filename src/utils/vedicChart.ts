@@ -29,6 +29,92 @@ const RASHI_NAMES = [
   'Pisces',
 ];
 
+export const RASHI_ABBR: Record<string, string> = {
+  Aries: 'Ar',
+  Taurus: 'Ta',
+  Gemini: 'Ge',
+  Cancer: 'Cn',
+  Leo: 'Le',
+  Virgo: 'Vi',
+  Libra: 'Li',
+  Scorpio: 'Sc',
+  Sagittarius: 'Sg',
+  Capricorn: 'Cp',
+  Aquarius: 'Aq',
+  Pisces: 'Pi',
+};
+
+export function getHouseSigns(ascendantSign: string): Record<number, string> {
+  const ascIndex = RASHI_NAMES.indexOf(ascendantSign);
+  if (ascIndex < 0) return {};
+  const houses: Record<number, string> = {};
+  for (let house = 1; house <= 12; house += 1) {
+    houses[house] = RASHI_NAMES[(ascIndex + house - 1) % 12];
+  }
+  return houses;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function geocodeWithOpenMeteo(place: string) {
+  const query = place.split(',')[0].trim();
+  const response = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`,
+    { signal: AbortSignal.timeout(15000) }
+  );
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data?.results?.[0]) return null;
+  return {
+    lat: data.results[0].latitude as number,
+    lon: data.results[0].longitude as number,
+  };
+}
+
+async function geocodeWithNominatim(place: string) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`,
+    {
+      signal: AbortSignal.timeout(15000),
+      headers: { Accept: 'application/json', 'User-Agent': 'LifeOn66/1.0 (contact@lifeon66.com)' },
+    }
+  );
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data?.length) return null;
+  return {
+    lat: parseFloat(data[0].lat),
+    lon: parseFloat(data[0].lon),
+  };
+}
+
+export async function geocodeBirthPlace(place: string) {
+  const trimmed = place.trim();
+  if (!trimmed) {
+    throw new Error('Please enter your birth place.');
+  }
+
+  const providers = [
+    () => geocodeWithOpenMeteo(trimmed),
+    () => geocodeWithNominatim(`${trimmed}, India`),
+    () => geocodeWithNominatim(trimmed),
+  ];
+
+  for (let attempt = 0; attempt < providers.length; attempt += 1) {
+    try {
+      const coords = await providers[attempt]();
+      if (coords) return coords;
+    } catch (error) {
+      console.warn('Geocoding attempt failed:', error);
+    }
+    if (attempt < providers.length - 1) {
+      await sleep(800);
+    }
+  }
+
+  throw new Error('Could not locate birth place. Try "City, State, India" format.');
+}
+
 const TENTH_HOUSE_CAREERS: Record<string, string> = {
   Aries: 'Leadership, entrepreneurship, engineering, defense, and competitive fields',
   Taurus: 'Finance, banking, luxury brands, agriculture, and stable enterprise roles',
@@ -127,30 +213,6 @@ export function buildUtcBirthDate(
   return new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, utcHour, utcMin));
 }
 
-export async function geocodeBirthPlace(place: string) {
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`,
-    {
-      signal: AbortSignal.timeout(8000),
-      headers: { Accept: 'application/json', 'User-Agent': 'LifeOn66/1.0' },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error('Could not resolve birth place coordinates.');
-  }
-
-  const data = await response.json();
-  if (!data?.length) {
-    throw new Error('Birth place not found. Please enter city, state, country.');
-  }
-
-  return {
-    lat: parseFloat(data[0].lat),
-    lon: parseFloat(data[0].lon),
-  };
-}
-
 function getWholeSignHouse(planetRashi: number, ascendantRashi: number) {
   return ((planetRashi - ascendantRashi + 12) % 12) + 1;
 }
@@ -201,10 +263,10 @@ export function computeVedicChart(input: {
   const sunSign = planets.find((planet) => planet.name === 'Sun')?.sign || '';
   const moonSign = planets.find((planet) => planet.name === 'Moon')?.sign || '';
 
-  const houses: Record<string, string> = {
-    house_1: risingSign,
-    house_10: tenthHouseSign,
-  };
+  const houses: Record<string, string> = {};
+  for (let house = 1; house <= 12; house += 1) {
+    houses[`house_${house}`] = getHouseSign(ascRashi, house);
+  }
 
   const currentDasha = kundli.dasha.fullCycle.find(
     (entry) => entry.startTime <= birthUtc && entry.endTime > birthUtc

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, Star, Sun, Sparkles, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, Star, Sparkles, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { BirthDetails, formatGenderLabel, GENDER_OPTIONS } from '../types/astrology';
 import apiClient from '../api/apiClient';
 import { parseApiError } from '../utils/apiErrors';
@@ -15,6 +15,7 @@ import {
   pickBackendList,
   pickBackendNarrative,
 } from '../utils/vedicChart';
+import { NorthIndianChart, northIndianChartToDataUrl } from './NorthIndianChart';
 
 interface Planet {
   name: string;
@@ -141,9 +142,12 @@ export function AstrologyChart() {
       const dashas = pickBackendDashas(apiData.dashas, computedChart.dashas);
       const yogas = pickBackendList(apiData.yogas, computedChart.yogas);
 
+      const localChartImage = northIndianChartToDataUrl(computedChart.planets, computedChart.risingSign);
+      const finalChartImage = chartImageDataUrl || localChartImage;
+
       const result: AstrologyReading = {
         planets: computedChart.planets,
-        chartImageDataUrl,
+        chartImageDataUrl: finalChartImage,
         careerHouse,
         planetaryPeriods: favorablePeriods,
         careerRecommendations,
@@ -170,7 +174,7 @@ export function AstrologyChart() {
         favorablePeriods,
         dashas,
         yogas,
-        chartImageDataUrl,
+        chartImageDataUrl: finalChartImage,
         birthData: requestBody.birthData,
       });
 
@@ -184,48 +188,6 @@ export function AstrologyChart() {
       setIsGenerating(false);
     }
   };
-
-  const ChartWheel = ({ planets }: { planets: Planet[] }) => (
-    <div className="relative w-72 h-72 mx-auto">
-      <div className="absolute inset-0 rounded-full border-4 border-yellow-400/30 bg-gradient-to-br from-slate-800/80 to-slate-900/80">
-        <div className="absolute inset-0 rounded-full border-2 border-yellow-400/10" style={{ margin: '20%' }} />
-        {Array.from({ length: 12 }, (_, i) => (
-          <div
-            key={i}
-            className="absolute w-px bg-yellow-400/20 origin-bottom"
-            style={{
-              left: '50%',
-              bottom: '50%',
-              height: '50%',
-              transform: `translateX(-50%) rotate(${i * 30}deg)`,
-            }}
-          />
-        ))}
-        {planets.map((planet, index) => {
-          const angle = (planet.house - 1) * 30 + (planet.degree % 30);
-          const radius = 100;
-          const x = Math.cos((angle - 90) * Math.PI / 180) * radius;
-          const y = Math.sin((angle - 90) * Math.PI / 180) * radius;
-          return (
-            <motion.div
-              key={planet.name}
-              className="absolute w-8 h-8 bg-slate-800 rounded-full border border-yellow-400/60 flex items-center justify-center text-sm shadow-lg cursor-pointer"
-              style={{ left: `calc(50% + ${x}px - 16px)`, top: `calc(50% + ${y}px - 16px)` }}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: index * 0.15, type: 'spring' }}
-              title={`${planet.name} in ${planet.sign} — House ${planet.house}`}
-            >
-              <span className="text-yellow-300">{planet.icon}</span>
-            </motion.div>
-          );
-        })}
-        <div className="absolute inset-1/2 w-14 h-14 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-          <Sun className="w-7 h-7 text-white" />
-        </div>
-      </div>
-    </div>
-  );
 
   const sunSign = reading?.planets?.find((p) => p.name === 'Sun')?.sign;
   const moonSign = reading?.planets?.find((p) => p.name === 'Moon')?.sign;
@@ -260,7 +222,7 @@ export function AstrologyChart() {
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
                 <MapPin className="w-4 h-4" style={{ color: '#f0b800' }} /> Place of Birth
               </label>
-              <input type="text" value={birthData.place} onChange={(e) => setBirthData({ ...birthData, place: e.target.value })} placeholder="City, Country" className="w-full astrology-input" />
+              <input type="text" value={birthData.place} onChange={(e) => setBirthData({ ...birthData, place: e.target.value })} placeholder="City, State, India" className="w-full astrology-input" />
             </div>
             <div>
               <label className="block text-white font-medium mb-2 flex items-center gap-2">
@@ -343,15 +305,10 @@ export function AstrologyChart() {
         {reading && (
           <div className="grid lg:grid-cols-2 gap-8 items-start">
             <div>
-              {reading.chartImageDataUrl ? (
-                <img
-                  src={reading.chartImageDataUrl}
-                  alt="Vedic Birth Chart"
-                  className="w-full max-w-md mx-auto rounded-xl shadow-lg border border-yellow-400/30"
-                />
-              ) : (
-                <ChartWheel planets={reading.planets} />
-              )}
+              <NorthIndianChart
+                planets={reading.planets}
+                ascendantSign={ascendantSign || reading.houses?.house_1 || ''}
+              />
               <div className="mt-6 grid grid-cols-3 gap-2">
                 {reading.planets.map((planet) => (
                   <div key={planet.name} className="rounded-lg p-3 text-center border border-celestial-700/30" style={{ background: 'rgba(6, 15, 30, 0.7)' }}>
