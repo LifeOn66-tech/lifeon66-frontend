@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, Target, CheckCircle, AlertCircle, Award, Briefcase, ArrowRight, Zap, Crown, Star, Shield, Rocket, Loader2 } from 'lucide-react';
-import apiClient from '../api/apiClient';
 import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
+import { fetchReadingsList, normalizeInsightAnalysis } from '../utils/insightMapper';
 import { parseApiError } from '../utils/apiErrors';
 
 import { CareerReportSummary } from './CareerReportSummary';
@@ -38,6 +38,8 @@ interface Analysis {
 
 export default function ComprehensiveAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [hasAstrology, setHasAstrology] = useState(false);
   const [hasPalm, setHasPalm] = useState(false);
@@ -51,20 +53,9 @@ export default function ComprehensiveAnalysis() {
     insight: Record<string, unknown>,
     readings: { face: Record<string, unknown>; palmistry: Record<string, unknown>; astrology: Record<string, unknown> }
   ): Analysis => {
-    const topCareerPaths = (insight.topCareerPaths || insight.topCareerMatches || []) as Array<Record<string, unknown>>;
+    const normalized = normalizeInsightAnalysis(insight);
     return {
-      topCareerMatches: topCareerPaths.map((career) => ({
-        title: String(career.title || career.name || 'Career Path'),
-        matchScore: Number(career.matchScore ?? career.score ?? 0),
-        reasoning: String(career.reasoning || career.description || insight.synthesizedRecommendation || ''),
-        salaryRange: String(career.salaryRange || 'Varies by region'),
-        growthPotential: String(career.growthPotential || 'High'),
-      })),
-      sixMonthPathway: (insight.sixMonthPathway || []) as PathwayStep[],
-      threeYearPathway: (insight.threeYearPathway || []) as PathwayStep[],
-      strengthsSummary: (insight.strengths || insight.strengthsSummary || []) as string[],
-      developmentAreas: (insight.challenges || insight.developmentAreas || []) as string[],
-      confidenceScore: Number(insight.confidenceScore ?? 0),
+      ...normalized,
       astrologyData: readings.astrology,
       palmistryData: readings.palmistry,
       faceReadingData: readings.face,
@@ -89,26 +80,35 @@ export default function ComprehensiveAnalysis() {
   };
 
   const checkCompletedReadings = async () => {
-    try {
-      const response = await apiClient.get('readings');
-      if (response.data.success) {
-        const { astrology, palmistry, face } = response.data.data;
-        setHasAstrology(astrology.length > 0);
-        setHasPalm(palmistry.length > 0);
-        setHasFace(face.length > 0);
+    setIsLoading(true);
+    setLoadError(null);
 
-        if (astrology.length > 0 && palmistry.length > 0 && face.length > 0) {
-          const readings = {
-            face: face[0],
-            palmistry: palmistry[0],
-            astrology: astrology[0],
-          };
-          setFullData(readings);
-          await loadExistingInsight(readings);
-        }
+    try {
+      const readingsList = await fetchReadingsList();
+      if (!readingsList) {
+        setLoadError('Could not load your readings. The server may be waking up — please refresh in a moment.');
+        return;
+      }
+
+      const { astrology, palmistry, face } = readingsList;
+      setHasAstrology(astrology.length > 0);
+      setHasPalm(palmistry.length > 0);
+      setHasFace(face.length > 0);
+
+      if (astrology.length > 0 && palmistry.length > 0 && face.length > 0) {
+        const readings = {
+          face: face[0],
+          palmistry: palmistry[0],
+          astrology: astrology[0],
+        };
+        setFullData(readings);
+        await loadExistingInsight(readings);
       }
     } catch (error) {
       console.error('Error fetching readings:', error);
+      setLoadError('Could not load your readings. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -134,6 +134,39 @@ export default function ComprehensiveAnalysis() {
 
   const completedCount = [hasAstrology, hasPalm, hasFace].filter(Boolean).length;
   const allComplete = completedCount === 3;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 flex justify-center">
+        <div className="flex flex-col items-center gap-4 py-20">
+          <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+          <p className="text-purple-200">Loading your readings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-red-400/30 text-center"
+        >
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Unable to Load Readings</h2>
+          <p className="text-purple-200 mb-6">{loadError}</p>
+          <button
+            onClick={checkCompletedReadings}
+            className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!allComplete) {
     return (
@@ -224,7 +257,7 @@ export default function ComprehensiveAnalysis() {
       <CareerReportSummary analysis={analysis} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {analysis.topCareerMatches.map((career, index) => (
+        {(analysis.topCareerMatches || []).map((career, index) => (
           <motion.div
             key={index}
             onClick={() => setSelectedCareer(index)}
@@ -267,7 +300,7 @@ export default function ComprehensiveAnalysis() {
             Strategic Strengths
           </h2>
           <div className="space-y-4">
-            {analysis.strengthsSummary.map((strength, index) => (
+            {(analysis.strengthsSummary || []).map((strength, index) => (
               <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
                 <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                 <span className="text-purple-100 font-medium">{strength}</span>
@@ -282,7 +315,7 @@ export default function ComprehensiveAnalysis() {
             Growth Opportunities
           </h2>
           <div className="space-y-4">
-            {analysis.developmentAreas.map((area, index) => (
+            {(analysis.developmentAreas || []).map((area, index) => (
               <div key={index} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
                 <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
                 <span className="text-purple-100 font-medium">{area}</span>

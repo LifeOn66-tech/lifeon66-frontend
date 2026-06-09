@@ -112,8 +112,14 @@ export async function linkReadingsInsightWithRetry(readings: {
   throw lastError;
 }
 
-export async function fetchInsight() {
-  const response = await apiClient.get('readings/insight', { timeout: 45000 });
-  if (!response.data?.success) return null;
-  return response.data.data;
+export async function fetchInsight(): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await apiClient.get('readings/insight', { timeout: 120000 });
+    if (!response.data?.success) return null;
+    const insight = response.data.data;
+    return insight && typeof insight === 'object' ? (insight as Record<string, unknown>) : null;
+  } catch (error) {
+    console.error('Error fetching insight:', error);
+    return null;
+  }
 }

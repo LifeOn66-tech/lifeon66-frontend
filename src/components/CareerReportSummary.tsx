@@ -21,9 +21,16 @@ interface Props {
 }
 
 export const CareerReportSummary = ({ analysis }: Props) => {
-  const top = analysis.topCareerMatches[0];
-  const topStrengths = analysis.strengthsSummary.slice(0, 3);
-  const topGaps = analysis.developmentAreas.slice(0, 2);
+  const topCareerMatches = Array.isArray(analysis.topCareerMatches) ? analysis.topCareerMatches : [];
+  const strengthsSummary = Array.isArray(analysis.strengthsSummary) ? analysis.strengthsSummary : [];
+  const developmentAreas = Array.isArray(analysis.developmentAreas) ? analysis.developmentAreas : [];
+  const top = topCareerMatches[0];
+  const topStrengths = strengthsSummary.slice(0, 3);
+  const topGaps = developmentAreas.slice(0, 2);
+
+  if (!top) {
+    return null;
+  }
 
   return (
     <motion.div
@@ -37,7 +44,7 @@ export const CareerReportSummary = ({ analysis }: Props) => {
           <h2 className="text-white font-bold text-lg">Career Report Summary</h2>
         </div>
         <span className="text-sm font-semibold text-teal-300 bg-teal-400/10 px-3 py-1 rounded-full border border-teal-400/30">
-          {analysis.confidenceScore}% confidence
+          {analysis.confidenceScore ?? 0}% confidence
         </span>
       </div>
 
@@ -70,12 +77,16 @@ export const CareerReportSummary = ({ analysis }: Props) => {
             <p className="text-xs text-yellow-200 uppercase tracking-wide font-semibold">Top Strengths</p>
           </div>
           <ul className="space-y-2">
-            {topStrengths.map((s, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-blue-100">
-                <CheckCircle className="w-3.5 h-3.5 text-green-400 mt-0.5 flex-shrink-0" />
-                <span>{s}</span>
-              </li>
-            ))}
+            {topStrengths.length > 0 ? (
+              topStrengths.map((s, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-blue-100">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-400 mt-0.5 flex-shrink-0" />
+                  <span>{s}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-sm text-blue-200/70">Strengths will appear after analysis is generated.</li>
+            )}
           </ul>
         </div>
 
@@ -85,25 +96,31 @@ export const CareerReportSummary = ({ analysis }: Props) => {
             <p className="text-xs text-amber-200 uppercase tracking-wide font-semibold">Focus Areas</p>
           </div>
           <ul className="space-y-2">
-            {topGaps.map((g, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-blue-100">
-                <span className="text-amber-400 mt-0.5 flex-shrink-0">›</span>
-                <span>{g}</span>
-              </li>
-            ))}
+            {topGaps.length > 0 ? (
+              topGaps.map((g, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-blue-100">
+                  <span className="text-amber-400 mt-0.5 flex-shrink-0">›</span>
+                  <span>{g}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-sm text-blue-200/70">Growth areas will appear after analysis is generated.</li>
+            )}
           </ul>
 
-          <div className="mt-4 pt-3 border-t border-white/10">
-            <p className="text-xs text-blue-300 font-semibold uppercase tracking-wide mb-1">Other Top Matches</p>
-            {analysis.topCareerMatches.slice(1).map((c, i) => (
-              <div key={i} className="flex items-center justify-between text-xs mt-1">
-                <span className="text-blue-100 truncate">{c.title}</span>
-                <span className="text-green-400 font-bold ml-2">{c.matchScore}%</span>
-              </div>
-            ))}
-          </div>
+          {topCareerMatches.length > 1 && (
+            <div className="mt-4 pt-3 border-t border-white/10">
+              <p className="text-xs text-blue-300 font-semibold uppercase tracking-wide mb-1">Other Top Matches</p>
+              {topCareerMatches.slice(1).map((c, i) => (
+                <div key={i} className="flex items-center justify-between text-xs mt-1">
+                  <span className="text-blue-100 truncate">{c.title}</span>
+                  <span className="text-green-400 font-bold ml-2">{c.matchScore}%</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
   );
-}
+};
