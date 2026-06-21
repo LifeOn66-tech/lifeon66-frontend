@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, Star, Zap, Crown, ArrowRight, Loader2, Share2, CheckCircle, Lock, Unlock, MessageCircle, Send, Mail, Twitter, FileText } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
 import { parseApiErrorAsync } from '../utils/apiErrors';
 import { downloadCareerReport, downloadPdfBlob } from '../utils/reportDownload';
+import { validateReadingsForReport, type MissingReading } from '../utils/readingRequirements';
 
 interface PaymentSuccessData {
   paymentId: string;
@@ -25,18 +26,46 @@ export default function PricingPlans() {
   const [downloadingTier, setDownloadingTier] = useState<string | null>(null);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [missingReadings, setMissingReadings] = useState<MissingReading[]>([]);
+  const autoDownloadTriggered = useRef(false);
 
   const showToast = (message: string) => {
     setToastMsg(message);
     window.setTimeout(() => setToastMsg(null), 4000);
   };
 
-  const handleDownloadPdf = async (tier: string) => {
+  const handleDownloadPdf = useCallback(async (tier: string) => {
+    if (!user) {
+      alert('Please login first.');
+      navigate('/login');
+      return;
+    }
+
     setDownloadingTier(tier);
     setErrorMsg(null);
+    setMissingReadings([]);
 
     try {
-      const { blob } = await downloadCareerReport(tier, showToast);
+      if (syncUser) await syncUser();
+
+      let subscriptionTier = user.subscriptionTier;
+      try {
+        const meRes = await apiClient.get('auth/me');
+        if (meRes.data.success) {
+          subscriptionTier = meRes.data.data.subscriptionTier;
+        }
+      } catch {
+        // Use cached tier if refresh fails.
+      }
+
+      const readiness = await validateReadingsForReport();
+      if (!readiness.ready) {
+        setMissingReadings(readiness.missing);
+        setErrorMsg(readiness.message);
+        return;
+      }
+
+      const { blob } = await downloadCareerReport(tier, showToast, subscriptionTier);
       await downloadPdfBlob(blob, tier);
       showToast('PDF downloaded successfully.');
     } catch (error: unknown) {
@@ -48,16 +77,16 @@ export default function PricingPlans() {
           : await parseApiErrorAsync(error);
       setErrorMsg(message);
       alert(`${title}: ${message}`);
-
-      if (message.includes('birth chart')) {
-        navigate('/astrology');
-      } else if (message.includes('Palm and face')) {
-        navigate('/comprehensive');
-      }
     } finally {
       setDownloadingTier(null);
     }
-  };
+  }, [navigate, showToast, syncUser, user]);
+
+  useEffect(() => {
+    if (!paymentSuccessData || autoDownloadTriggered.current) return;
+    autoDownloadTriggered.current = true;
+    void handleDownloadPdf(paymentSuccessData.tier);
+  }, [paymentSuccessData, handleDownloadPdf]);
 
   const handleSubscribe = async (tier: string) => {
     if (!user) {
@@ -68,25 +97,10 @@ export default function PricingPlans() {
 
     if (syncUser) await syncUser();
     setErrorMsg(null);
+    setMissingReadings([]);
 
     try {
       setLoadingTier(tier);
-      
-      try {
-        const syncRes = await apiClient.get('auth/me');
-        if (syncRes.data.success) {
-          const freshUser = syncRes.data.data;
-          if (freshUser.subscriptionTier !== user?.subscriptionTier) {
-            if (tier === 'free') {
-              sessionStorage.setItem('pendingPdfTier', tier);
-              navigate('/comprehensive');
-              return;
-            }
-          }
-        }
-      } catch (syncErr) {
-        console.warn('[Pricing] Sync failed');
-      }
 
       const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SmtdodyyixI88i';
       
@@ -141,6 +155,7 @@ export default function PricingPlans() {
                 if (syncUser) {
                   await syncUser();
                 }
+                autoDownloadTriggered.current = false;
                 setPaymentSuccessData({
                   paymentId: response.razorpay_payment_id,
                   orderId: response.razorpay_order_id,
@@ -167,6 +182,7 @@ export default function PricingPlans() {
           setLoadingTier(null);
         });
         rzp.open();
+        return;
       }
     } catch (err: any) {
       console.error('Payment error:', err);
@@ -422,7 +438,21 @@ export default function PricingPlans() {
 
       {errorMsg && (
         <div className="mb-8 max-w-2xl mx-auto bg-red-500/10 border border-red-500/40 rounded-xl p-4 text-red-300 text-sm text-center">
-          ⚠️ {errorMsg}
+          <p>⚠️ {errorMsg}</p>
+          {missingReadings.length > 0 && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {missingReadings.map((item) => (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => navigate(item.path)}
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+                >
+                  Complete {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import apiClient from '../api/apiClient';
+import { isStaticBackendText } from './vedicChart';
 
 export interface ReadingsList {
   astrology: Record<string, unknown>[];
@@ -90,32 +91,28 @@ export function normalizeInsightAnalysis(
   const topCareerMatches = rawMatches
     .map((career) => {
       const item = (career ?? {}) as Record<string, unknown>;
+      const rawReasoning = item.reasoning || item.description || insight.synthesizedRecommendation || insight.summary;
+      const reasoning = isStaticBackendText(rawReasoning) ? '' : String(rawReasoning || '').trim();
       return {
         title: String(item.title || item.name || '').trim(),
         matchScore: Number(item.matchScore ?? item.score ?? 0),
-        reasoning: String(item.reasoning || item.description || insight.synthesizedRecommendation || fallbackReason),
+        reasoning: reasoning || String(fallbackReason),
         salaryRange: String(item.salaryRange || 'Varies by region'),
         growthPotential: String(item.growthPotential || 'High'),
       };
     })
-    .filter((career) => career.title);
-
-  if (topCareerMatches.length === 0) {
-    topCareerMatches.push({
-      title: 'Recommended Career Path',
-      matchScore: Number(insight.confidenceScore ?? 75) || 75,
-      reasoning: String(insight.synthesizedRecommendation || insight.summary || fallbackReason),
-      salaryRange: 'Varies by region',
-      growthPotential: 'High',
-    });
-  }
+    .filter((career) => career.title && !isStaticBackendText(career.title));
 
   return {
     topCareerMatches,
     sixMonthPathway: normalizePathwaySteps(insight.sixMonthPathway),
     threeYearPathway: normalizePathwaySteps(insight.threeYearPathway),
-    strengthsSummary: asStringArray(insight.strengths || insight.strengthsSummary),
-    developmentAreas: asStringArray(insight.challenges || insight.developmentAreas),
-    confidenceScore: Number(insight.confidenceScore ?? 75) || 75,
+    strengthsSummary: asStringArray(insight.strengths || insight.strengthsSummary).filter(
+      (item) => !isStaticBackendText(item)
+    ),
+    developmentAreas: asStringArray(insight.challenges || insight.developmentAreas).filter(
+      (item) => !isStaticBackendText(item)
+    ),
+    confidenceScore: Number(insight.confidenceScore ?? 0) || 0,
   };
 }

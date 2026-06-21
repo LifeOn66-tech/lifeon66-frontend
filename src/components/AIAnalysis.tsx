@@ -6,6 +6,9 @@ import apiClient from '../api/apiClient';
 import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
 import { parseApiError } from '../utils/apiErrors';
 import { formatGenderLabel } from '../types/astrology';
+import { isStaticBackendText } from '../utils/vedicChart';
+import { downloadCareerReport, downloadPdfBlob } from '../utils/reportDownload';
+import { useAuth } from '../hooks/useAuth';
 
 interface ReadingSummaries {
   astrology: string;
@@ -33,13 +36,19 @@ type SavedReadings = {
   face: Record<string, unknown>;
 };
 
+function pickReadingText(value: unknown, fallback: string): string {
+  if (value == null || value === '') return fallback;
+  if (isStaticBackendText(value)) return fallback;
+  return String(value);
+}
+
 function getAstrologySummary(reading: Record<string, unknown>): string {
   const text =
     reading.careerHouseAnalysis ||
     reading.careerHouse ||
     reading.integratedCareerGuidance ||
     reading.careerRecommendations;
-  if (text) return String(text);
+  if (text && !isStaticBackendText(text)) return String(text);
 
   const birthDate = reading.birthDate || reading.dateOfBirth;
   const birthPlace = reading.birthPlace || reading.placeOfBirth;
@@ -51,22 +60,22 @@ function getAstrologySummary(reading: Record<string, unknown>): string {
 }
 
 function getPalmistrySummary(reading: Record<string, unknown>): string {
-  return String(
+  return pickReadingText(
     reading.careerRecommendations ||
       reading.overallRecommendations ||
       reading.fateLineAnalysis ||
-      reading.summary ||
-      'Palm reading saved.'
+      reading.summary,
+    'Palm reading saved.'
   );
 }
 
 function getFaceSummary(reading: Record<string, unknown>): string {
-  return String(
+  return pickReadingText(
     reading.careerRecommendations ||
       reading.summary ||
       reading.leadershipStyle ||
-      reading.workStyle ||
-      'Face reading saved.'
+      reading.workStyle,
+    'Face reading saved.'
   );
 }
 
@@ -134,8 +143,10 @@ function mapInsightToSynthesized(insight: Record<string, unknown>): SynthesizedI
 
 export default function AIAnalysis() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [insight, setInsight] = useState<SynthesizedInsight | null>(null);
   const [step, setStep] = useState(1);
   const [hasAstrology, setHasAstrology] = useState(false);
@@ -205,6 +216,23 @@ export default function AIAnalysis() {
       alert(`${title}: ${message}`);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    setIsDownloading(true);
+    try {
+      const tier = user?.subscriptionTier || 'free';
+      const { blob } = await downloadCareerReport(tier, undefined, user?.subscriptionTier);
+      await downloadPdfBlob(blob, tier);
+    } catch (error) {
+      const { title, message } = parseApiError(error);
+      alert(`${title}: ${message}`);
+      if (message.includes('Upgrade')) {
+        navigate('/pricing');
+      }
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -579,10 +607,11 @@ export default function AIAnalysis() {
             Regenerate Analysis
           </button>
           <button
-            onClick={() => navigate('/pricing')}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300"
+            onClick={handleDownloadReport}
+            disabled={isDownloading}
+            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 disabled:opacity-60"
           >
-            Download Report
+            {isDownloading ? 'Generating PDF…' : 'Download Report'}
           </button>
         </div>
       </motion.div>

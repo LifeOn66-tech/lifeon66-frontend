@@ -1,8 +1,9 @@
 import type { AxiosError } from 'axios';
 import apiClient from '../api/apiClient';
-import { buildUserDetails, linkReadingsInsightWithRetry, type UserDetails } from './readingsApi';
+import { buildUserDetails, getReadingId, linkReadingsInsightWithRetry, type UserDetails } from './readingsApi';
 import { ensureReadingsReadyForReport } from './readingSave';
 import { parseApiErrorAsync } from './apiErrors';
+import { canAccessReportTier, validateReadingsForReport } from './readingRequirements';
 
 const PDF_TIMEOUT_MS = 240000;
 const PDF_MAX_RETRIES = 3;
@@ -119,6 +120,11 @@ export async function downloadPdfBlob(blob: Blob, tier: string) {
 export async function requestReportPdf(payload: {
   tier: ReportTier;
   userDetails: UserDetails;
+  readingIds: {
+    astrology: string;
+    palmistry: string;
+    face: string;
+  };
   language?: string;
 }) {
   const endpoint = REPORT_ENDPOINTS[payload.tier];
@@ -137,6 +143,9 @@ export async function requestReportPdf(payload: {
           tier: payload.tier,
           language: payload.language ?? 'en',
           userDetails: payload.userDetails,
+          astrologyReadingId: payload.readingIds.astrology,
+          palmistryReadingId: payload.readingIds.palmistry,
+          faceReadingId: payload.readingIds.face,
         },
         {
           responseType: 'blob',
@@ -176,23 +185,30 @@ export interface DownloadCareerReportResult {
 
 export async function downloadCareerReport(
   tier: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  userSubscriptionTier?: string
 ): Promise<DownloadCareerReportResult> {
   const progress = onProgress ?? (() => {});
   const reportTier = normalizeReportTier(tier);
+
+  if (!canAccessReportTier(userSubscriptionTier, reportTier)) {
+    throw new Error(
+      reportTier === 'professional'
+        ? 'Upgrade to Cosmic Master to download this report.'
+        : 'Upgrade to Astral to download this report.'
+    );
+  }
+
+  const readiness = await validateReadingsForReport();
+  if (!readiness.ready) {
+    throw new Error(readiness.message);
+  }
 
   progress('Waking server — first download may take 2–3 minutes...');
   await wakeBackend();
 
   progress('Loading your readings...');
   const { astrology, palmistry, face } = await fetchReadingsForReport();
-
-  if (!astrology[0]) {
-    throw new Error('Complete and save your birth chart before downloading a report.');
-  }
-  if (!palmistry[0] || !face[0]) {
-    throw new Error('Palm and face readings are required before downloading a report.');
-  }
 
   const userDetails = buildUserDetails(astrology[0]);
   if (!userDetails.dateOfBirth || !userDetails.timeOfBirth || !userDetails.placeOfBirth || !userDetails.gender) {
@@ -217,6 +233,11 @@ export async function downloadCareerReport(
   const blob = await requestReportPdf({
     tier: reportTier,
     userDetails,
+    readingIds: {
+      astrology: getReadingId(astrology[0]),
+      palmistry: getReadingId(palmistry[0]),
+      face: getReadingId(face[0]),
+    },
     language: 'en',
   });
 
