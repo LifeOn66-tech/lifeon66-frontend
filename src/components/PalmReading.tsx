@@ -142,7 +142,7 @@ export function PalmReading() {
             <h2 className="text-3xl font-bold text-white mb-2">Hasta Samudrika Shastra</h2>
             <p className="text-amber-200/80 text-sm mb-1">Classical Indian Palm Reading</p>
             <p className="text-white/60 text-sm">
-              {currentPalm === 'left' ? 'Step 1 of 2 â€” Capture your LEFT palm (inherited destiny)' : 'Step 2 of 2 â€” Capture your RIGHT palm (active karma)'}
+              {currentPalm === 'left' ? 'Step 1 of 2 — Capture your LEFT palm (inherited destiny)' : 'Step 2 of 2 — Capture your RIGHT palm (active karma)'}
             </p>
             {(leftPalmImage || rightPalmImage) && (
               <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
@@ -165,9 +165,9 @@ export function PalmReading() {
           <div className="bg-amber-400/10 border border-amber-400/20 rounded-lg p-4 mb-6 text-sm">
             <p className="text-amber-300 font-semibold mb-2">Reading Significance:</p>
             <ul className="text-amber-100/80 space-y-1">
-              <li>â€¢ <span className="text-amber-300">Left palm:</span> Born potential, inherited abilities, natural karmic gifts</li>
-              <li>â€¢ <span className="text-amber-300">Right palm:</span> Active karma â€” how you have developed your gifts</li>
-              <li>â€¢ Comparison reveals where you are fulfilling or diverging from destiny</li>
+              <li>• <span className="text-amber-300">Left palm:</span> Born potential, inherited abilities, natural karmic gifts</li>
+              <li>• <span className="text-amber-300">Right palm:</span> Active karma — how you have developed your gifts</li>
+              <li>• Comparison reveals where you are fulfilling or diverging from destiny</li>
             </ul>
           </div>
 
@@ -198,7 +198,7 @@ export function PalmReading() {
                     />
                     {!isVideoReady && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-amber-200 text-sm">
-                        Starting cameraâ€¦
+                        Starting camera…
                       </div>
                     )}
                   </div>
@@ -230,11 +230,11 @@ export function PalmReading() {
             <div className="bg-blue-500/10 border border-blue-400/20 rounded-lg p-4 text-sm">
               <p className="text-blue-300 font-semibold mb-2">Photo guidelines for accurate reading:</p>
               <ul className="text-blue-100/80 space-y-1">
-                <li>â€¢ Palm fully flat, fingers spread naturally â€” not forced apart</li>
-                <li>â€¢ Clear, even lighting without harsh shadows</li>
-                <li>â€¢ Close enough to see individual lines clearly</li>
-                <li>â€¢ Entire palm visible from wrist crease to fingertips</li>
-                <li>â€¢ Natural skin tone â€” no filters or heavy editing</li>
+                <li>• Palm fully flat, fingers spread naturally — not forced apart</li>
+                <li>• Clear, even lighting without harsh shadows</li>
+                <li>• Close enough to see individual lines clearly</li>
+                <li>• Entire palm visible from wrist crease to fingertips</li>
+                <li>• Natural skin tone — no filters or heavy editing</li>
               </ul>
             </div>
           </div>
@@ -254,11 +254,11 @@ export function PalmReading() {
           </div>
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <h3 className="text-white font-bold mb-3 text-center text-sm uppercase tracking-wider">Left Palm â€” Inherited Destiny</h3>
+              <h3 className="text-white font-bold mb-3 text-center text-sm uppercase tracking-wider">Left Palm — Inherited Destiny</h3>
               <div className="relative"><img src={leftPalmImage!} alt="Left Palm" className="w-full rounded-xl shadow-lg" /><div className="absolute inset-0 border-2 border-amber-400/60 rounded-xl pointer-events-none" /></div>
             </div>
             <div>
-              <h3 className="text-white font-bold mb-3 text-center text-sm uppercase tracking-wider">Right Palm â€” Active Karma</h3>
+              <h3 className="text-white font-bold mb-3 text-center text-sm uppercase tracking-wider">Right Palm — Active Karma</h3>
               <div className="relative"><img src={rightPalmImage!} alt="Right Palm" className="w-full rounded-xl shadow-lg" /><div className="absolute inset-0 border-2 border-blue-400/60 rounded-xl pointer-events-none" /></div>
             </div>
           </div>
@@ -289,7 +289,7 @@ export function PalmReading() {
           </div>
           <ReadingResultsView
             title="Palm Reading Complete"
-            subtitle="Hasta Samudrika Shastra â€” AI Career Analysis"
+            subtitle="Hasta Samudrika Shastra — AI Career Analysis"
             analysis={analysis}
             images={[
               { label: 'Left Palm', src: leftPalmImage! },
