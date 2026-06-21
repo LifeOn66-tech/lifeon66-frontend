@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { Logo } from './Logo'
-import { startGoogleOAuthRedirect } from '../utils/googleAuth'
+import { loadGoogleScript, mountHiddenGoogleButton, triggerGoogleSignIn } from '../utils/googleAuth'
 
 function GoogleIcon() {
   return (
@@ -36,10 +36,26 @@ export function AuthForm() {
   const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
+  const googleButtonRef = useRef<HTMLDivElement>(null)
 
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+
+  const handleGoogleCredential = useCallback(async (credential: string) => {
+    setGoogleLoading(true)
+    setError('')
+    try {
+      const { error: authError } = await signInWithGoogle(credential)
+      if (authError) throw new Error(authError)
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed')
+    } finally {
+      setGoogleLoading(false)
+    }
+  }, [signInWithGoogle])
 
   useEffect(() => {
     const authError = searchParams.get('error')
@@ -57,8 +73,31 @@ export function AuthForm() {
     setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams])
 
+  useEffect(() => {
+    if (!googleClientId || !googleButtonRef.current) return
+
+    let active = true
+
+    loadGoogleScript()
+      .then(() => {
+        if (active && googleButtonRef.current) {
+          mountHiddenGoogleButton(googleClientId, googleButtonRef.current, handleGoogleCredential)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError('Could not load Google Sign-In. Please use email and password.')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [googleClientId, handleGoogleCredential])
+
   const handleGoogleClick = () => {
-    startGoogleOAuthRedirect()
+    if (googleLoading) return
+    triggerGoogleSignIn(googleButtonRef.current)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -218,14 +257,38 @@ export function AuthForm() {
             <span>or</span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleGoogleClick}
-            className="auth-button-google"
-          >
-            <GoogleIcon />
-            <span>Continue with Google</span>
-          </button>
+          {googleClientId ? (
+            <div className="relative">
+              <div ref={googleButtonRef} aria-hidden="true" />
+              <button
+                type="button"
+                onClick={handleGoogleClick}
+                disabled={googleLoading}
+                className="auth-button-google"
+              >
+                {googleLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/25 border-t-white rounded-full animate-spin" />
+                    <span>Signing in with Google…</span>
+                  </>
+                ) : (
+                  <>
+                    <GoogleIcon />
+                    <span>Continue with Google</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="auth-button-google opacity-40 cursor-not-allowed"
+            >
+              <GoogleIcon />
+              <span>Continue with Google</span>
+            </button>
+          )}
 
           <p className="text-center text-sm text-white/45 pt-1">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}

@@ -161,13 +161,13 @@ export function FaceReading() {
               <User className="w-8 h-8 text-blue-400" />
             </div>
             <h2 className="text-3xl font-bold text-white mb-1">Saamudraka Shastra</h2>
-            <p className="text-blue-200/80 text-sm mb-1">Classical Indian Face Reading â€” Physiognomy</p>
+            <p className="text-blue-200/80 text-sm mb-1">Classical Indian Face Reading — Physiognomy</p>
           </div>
 
           <div className="flex gap-3 mb-4">
             {progressSteps.map((s, i) => (
               <div key={s.view} className={`flex-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${s.captured ? 'bg-green-500/20 border border-green-400/40' : currentView === s.view ? 'bg-face-700/20 border border-face-400/40' : 'border border-face-800/20'}`} style={!s.captured && currentView !== s.view ? { background: 'rgba(2, 18, 17, 0.4)' } : {}}>
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${s.captured ? 'bg-green-400 text-white' : 'bg-face-800/60 text-white/60'}`}>{s.captured ? 'âœ“' : i + 1}</div>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${s.captured ? 'bg-green-400 text-white' : 'bg-face-800/60 text-white/60'}`}>{s.captured ? '✓' : i + 1}</div>
                 <span className={s.captured ? 'text-green-300' : currentView === s.view ? 'text-blue-300' : 'text-white/40'}>{s.label}</span>
               </div>
             ))}
@@ -199,9 +199,9 @@ export function FaceReading() {
           <div className="bg-blue-400/10 border border-blue-400/20 rounded-lg p-4 mb-6 text-sm">
             <p className="text-blue-300 font-semibold mb-1">Why three angles?</p>
             <ul className="text-blue-100/80 space-y-1 text-xs">
-              <li>â€¢ <span className="text-blue-300">Front view:</span> Face shape, forehead, overall proportions, cheekbones</li>
-              <li>â€¢ <span className="text-blue-300">Side profiles:</span> Nose structure, chin projection, forehead slope, ear position</li>
-              <li>â€¢ All three views together enable precise feature assessment</li>
+              <li>• <span className="text-blue-300">Front view:</span> Face shape, forehead, overall proportions, cheekbones</li>
+              <li>• <span className="text-blue-300">Side profiles:</span> Nose structure, chin projection, forehead slope, ear position</li>
+              <li>• All three views together enable precise feature assessment</li>
             </ul>
           </div>
 
@@ -212,9 +212,9 @@ export function FaceReading() {
                 Capture {currentView === 'front' ? 'FRONT View' : currentView === 'left' ? 'LEFT Profile' : 'RIGHT Profile'}
               </h3>
               <p className="text-white/50 text-xs mb-4">
-                {currentView === 'front' && 'Face the camera directly â€” neutral expression, good front lighting'}
-                {currentView === 'left' && 'Turn 90Â° to show your left profile â€” ear should be centered in frame'}
-                {currentView === 'right' && 'Turn 90Â° to show your right profile â€” ear should be centered in frame'}
+                {currentView === 'front' && 'Face the camera directly — neutral expression, good front lighting'}
+                {currentView === 'left' && 'Turn 90° to show your left profile — ear should be centered in frame'}
+                {currentView === 'right' && 'Turn 90° to show your right profile — ear should be centered in frame'}
               </p>
               {pendingPreview ? (
                 <CapturedPhotoPreview
@@ -243,7 +243,7 @@ export function FaceReading() {
                     />
                     {!isVideoReady && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-blue-200 text-sm">
-                        Starting cameraâ€¦
+                        Starting camera…
                       </div>
                     )}
                   </div>
