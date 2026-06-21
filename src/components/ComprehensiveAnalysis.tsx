@@ -5,6 +5,8 @@ import { Brain, TrendingUp, Target, CheckCircle, AlertCircle, Award, Briefcase, 
 import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
 import { fetchReadingsList, normalizeInsightAnalysis, type PathwayStep } from '../utils/insightMapper';
 import { parseApiError } from '../utils/apiErrors';
+import { downloadCareerReport, downloadPdfBlob } from '../utils/reportDownload';
+import { useAuth } from '../hooks/useAuth';
 
 import { CareerReportSummary } from './CareerReportSummary';
 
@@ -31,6 +33,7 @@ interface Analysis {
 export default function ComprehensiveAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [hasAstrology, setHasAstrology] = useState(false);
@@ -38,6 +41,7 @@ export default function ComprehensiveAnalysis() {
   const [hasFace, setHasFace] = useState(false);
   const [selectedCareer, setSelectedCareer] = useState(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [fullData, setFullData] = useState<{ face: Record<string, unknown>; palmistry: Record<string, unknown>; astrology: Record<string, unknown> } | null>(null);
 
@@ -121,6 +125,19 @@ export default function ComprehensiveAnalysis() {
       alert(`${title}: ${message}`);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownloadFreeReport = async () => {
+    setIsDownloadingReport(true);
+    try {
+      const { blob } = await downloadCareerReport('free', undefined, user?.subscriptionTier);
+      await downloadPdfBlob(blob, 'free');
+    } catch (error) {
+      const { title, message } = parseApiError(error);
+      alert(`${title}: ${message}`);
+    } finally {
+      setIsDownloadingReport(false);
     }
   };
 
@@ -352,7 +369,7 @@ export default function ComprehensiveAnalysis() {
             <div className="flex flex-col lg:flex-row gap-6 justify-center items-stretch mb-16">
               <motion.div 
                 whileHover={{ y: -10, scale: 1.02 }}
-                onClick={() => navigate('/pricing')}
+                onClick={handleDownloadFreeReport}
                 className="flex-1 bg-white/5 border border-white/10 rounded-3xl p-8 flex flex-col items-center hover:bg-white/10 transition-colors cursor-pointer group"
               >
                 <Star className="w-10 h-10 text-blue-400 mb-4 group-hover:scale-110 transition-transform duration-300" />
@@ -362,8 +379,12 @@ export default function ComprehensiveAnalysis() {
                   <div className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-green-500" /> 10-Page Report</div>
                   <div className="flex items-center gap-2"><CheckCircle className="w-3 h-3 text-green-500" /> Basic Overview</div>
                 </div>
-                <button className="mt-auto w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-bold transition-all uppercase tracking-wider">
-                  Download Free
+                <button
+                  type="button"
+                  disabled={isDownloadingReport}
+                  className="mt-auto w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-bold transition-all uppercase tracking-wider disabled:opacity-60"
+                >
+                  {isDownloadingReport ? 'Generating PDF…' : 'Download Free'}
                 </button>
               </motion.div>
 

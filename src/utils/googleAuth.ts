@@ -28,6 +28,8 @@ export function initializeGoogleAuth(
   window.google?.accounts.id.initialize({
     client_id: clientId,
     callback: (response) => onCredential(response.credential),
+    use_fedcm_for_prompt: true,
+    auto_select: false,
   });
 }
 

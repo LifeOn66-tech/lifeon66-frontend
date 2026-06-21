@@ -4,23 +4,31 @@ import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import './index.css'
 
-// Suppress noisy third-party Razorpay preload warnings in the browser console.
+/** Suppress known harmless third-party console noise (Razorpay, Google Sign-In). */
 if (typeof window !== 'undefined') {
-  const shouldSuppressRazorpayNoise = (value: unknown) =>
-    typeof value === 'string' &&
-    (value.includes('preloaded with link preload') ||
+  const shouldSuppressThirdPartyNoise = (value: unknown) => {
+    if (typeof value !== 'string') return false;
+    return (
+      value.includes('preloaded with link preload') ||
       value.includes('razorpay.com') ||
-      value.includes('checkout-static-next.razorpay.com'));
+      value.includes('checkout-static-next.razorpay.com') ||
+      value.includes('[GSI_LOGGER]') ||
+      value.includes('Cross-Origin-Opener-Policy policy would block') ||
+      value.includes('-ms-high-contrast') ||
+      value.includes('Self-XSS') ||
+      value.includes('Using this console may allow attackers')
+    );
+  };
 
   const originalWarn = console.warn;
   console.warn = (...args) => {
-    if (shouldSuppressRazorpayNoise(args[0])) return;
+    if (shouldSuppressThirdPartyNoise(args[0])) return;
     originalWarn.apply(console, args);
   };
 
   const originalError = console.error;
   console.error = (...args) => {
-    if (shouldSuppressRazorpayNoise(args[0])) return;
+    if (shouldSuppressThirdPartyNoise(args[0])) return;
     originalError.apply(console, args);
   };
 }
