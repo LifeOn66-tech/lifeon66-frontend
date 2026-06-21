@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, Target, CheckCircle, AlertCircle, Award, Briefcase, ArrowRight, Zap, Crown, Star, Shield, Rocket, Loader2 } from 'lucide-react';
 import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
-import { fetchReadingsList, normalizeInsightAnalysis } from '../utils/insightMapper';
+import { fetchReadingsList, normalizeInsightAnalysis, type PathwayStep } from '../utils/insightMapper';
 import { parseApiError } from '../utils/apiErrors';
 
 import { CareerReportSummary } from './CareerReportSummary';
@@ -14,14 +14,6 @@ interface CareerMatch {
   reasoning: string;
   salaryRange: string;
   growthPotential: string;
-}
-
-interface PathwayStep {
-  month: string;
-  title: string;
-  description: string;
-  actions: string[];
-  milestones: string[];
 }
 
 interface Analysis {

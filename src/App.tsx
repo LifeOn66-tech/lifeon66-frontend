@@ -10,6 +10,7 @@ import ComprehensiveAnalysis from './components/ComprehensiveAnalysis'
 import { useAuth } from './hooks/useAuth'
 import PricingPlans from './components/PricingPlans'
 import { Logo } from './components/Logo'
+import { GoogleAuthCallback } from './components/GoogleAuthCallback'
 import { Profile } from './components/Profile'
 
 function LoadingScreen() {
@@ -56,6 +57,7 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pricing" element={<PricingPlans />} />

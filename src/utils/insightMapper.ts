@@ -46,10 +46,35 @@ export interface NormalizedCareerMatch {
   growthPotential: string;
 }
 
+export interface PathwayStep {
+  month: string;
+  title: string;
+  description: string;
+  actions: string[];
+  milestones: string[];
+}
+
+function normalizePathwaySteps(value: unknown): PathwayStep[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((step) => {
+      const item = (step ?? {}) as Record<string, unknown>;
+      return {
+        month: String(item.month || ''),
+        title: String(item.title || ''),
+        description: String(item.description || ''),
+        actions: asStringArray(item.actions),
+        milestones: asStringArray(item.milestones),
+      };
+    })
+    .filter((step) => step.title || step.description);
+}
+
 export interface NormalizedInsightAnalysis {
   topCareerMatches: NormalizedCareerMatch[];
-  sixMonthPathway: unknown[];
-  threeYearPathway: unknown[];
+  sixMonthPathway: PathwayStep[];
+  threeYearPathway: PathwayStep[];
   strengthsSummary: string[];
   developmentAreas: string[];
   confidenceScore: number;
@@ -87,8 +112,8 @@ export function normalizeInsightAnalysis(
 
   return {
     topCareerMatches,
-    sixMonthPathway: Array.isArray(insight.sixMonthPathway) ? insight.sixMonthPathway : [],
-    threeYearPathway: Array.isArray(insight.threeYearPathway) ? insight.threeYearPathway : [],
+    sixMonthPathway: normalizePathwaySteps(insight.sixMonthPathway),
+    threeYearPathway: normalizePathwaySteps(insight.threeYearPathway),
     strengthsSummary: asStringArray(insight.strengths || insight.strengthsSummary),
     developmentAreas: asStringArray(insight.challenges || insight.developmentAreas),
     confidenceScore: Number(insight.confidenceScore ?? 75) || 75,
