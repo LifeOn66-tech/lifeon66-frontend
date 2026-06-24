@@ -1,4 +1,5 @@
 import apiClient from '../api/apiClient';
+import { getAstrologyBirthDetails } from '../types/astrology';
 import { compressImage, isBase64Image } from './imageUtils';
 
 const READING_TIMEOUT = 120000;
@@ -15,11 +16,12 @@ export function getReadingId(reading: { _id?: string; id?: string } | null | und
 }
 
 export function buildUserDetails(astrologyReading: Record<string, unknown> | null | undefined): UserDetails {
+  const details = getAstrologyBirthDetails(astrologyReading);
   return {
-    dateOfBirth: String(astrologyReading?.birthDate ?? astrologyReading?.dateOfBirth ?? ''),
-    timeOfBirth: String(astrologyReading?.birthTime ?? astrologyReading?.timeOfBirth ?? ''),
-    placeOfBirth: String(astrologyReading?.birthPlace ?? astrologyReading?.placeOfBirth ?? ''),
-    gender: String(astrologyReading?.gender ?? ''),
+    dateOfBirth: details.date,
+    timeOfBirth: details.time,
+    placeOfBirth: details.place,
+    gender: details.gender,
   };
 }
 

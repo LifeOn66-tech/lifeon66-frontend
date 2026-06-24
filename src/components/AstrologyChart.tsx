@@ -170,7 +170,15 @@ export function AstrologyChart() {
         dashas,
         yogas,
         chartImageDataUrl: finalChartImage,
-        birthData: requestBody.birthData,
+        birthData: {
+          ...requestBody.birthData,
+          date: birthData.date,
+          time: birthData.time,
+          place: birthData.place,
+          birthDate: birthData.date,
+          birthTime: birthData.time,
+          birthPlace: birthData.place,
+        },
       });
 
       setReading(result);

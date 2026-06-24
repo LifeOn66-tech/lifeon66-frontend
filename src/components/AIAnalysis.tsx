@@ -5,7 +5,7 @@ import { Brain, Sparkles, TrendingUp, Target, Clock, CheckCircle, AlertTriangle,
 import apiClient from '../api/apiClient';
 import { fetchInsight, linkReadingsInsight } from '../utils/readingsApi';
 import { parseApiError } from '../utils/apiErrors';
-import { formatGenderLabel } from '../types/astrology';
+import { formatGenderLabel, getAstrologyBirthDetails } from '../types/astrology';
 import { isStaticBackendText } from '../utils/vedicChart';
 import { downloadCareerReport, downloadPdfBlob } from '../utils/reportDownload';
 import { useAuth } from '../hooks/useAuth';
@@ -43,6 +43,7 @@ function pickReadingText(value: unknown, fallback: string): string {
 }
 
 function getAstrologySummary(reading: Record<string, unknown>): string {
+  const details = getAstrologyBirthDetails(reading);
   const text =
     reading.careerHouseAnalysis ||
     reading.careerHouse ||
@@ -50,11 +51,9 @@ function getAstrologySummary(reading: Record<string, unknown>): string {
     reading.careerRecommendations;
   if (text && !isStaticBackendText(text)) return String(text);
 
-  const birthDate = reading.birthDate || reading.dateOfBirth;
-  const birthPlace = reading.birthPlace || reading.placeOfBirth;
-  if (birthDate || birthPlace) {
-    const gender = reading.gender ? formatGenderLabel(String(reading.gender)) : '';
-    return `Chart saved${birthDate ? ` for ${birthDate}` : ''}${birthPlace ? ` · ${birthPlace}` : ''}${gender ? ` · ${gender}` : ''}.`;
+  if (details.date || details.place) {
+    const gender = details.gender ? formatGenderLabel(details.gender) : '';
+    return `Chart saved${details.date ? ` for ${details.date}` : ''}${details.place ? ` · ${details.place}` : ''}${gender ? ` · ${gender}` : ''}.`;
   }
   return 'Birth chart saved.';
 }
