@@ -1,5 +1,5 @@
 import apiClient from '../api/apiClient';
-import { buildUserDetails } from './readingsApi';
+import { getAstrologyBirthDetails, getMissingBirthDetailLabels } from '../types/astrology';
 import { parseReadingsList } from './insightMapper';
 
 export interface MissingReading {
@@ -53,11 +53,12 @@ export async function validateReadingsForReport(): Promise<ReadingsReadyCheck> {
     };
   }
 
-  const userDetails = buildUserDetails(readings.astrology[0]);
-  if (!userDetails.dateOfBirth || !userDetails.timeOfBirth || !userDetails.placeOfBirth || !userDetails.gender) {
+  const birthDetails = getAstrologyBirthDetails(readings.astrology[0]);
+  const missingBirthFields = getMissingBirthDetailLabels(birthDetails);
+  if (missingBirthFields.length > 0) {
     return {
       ready: false,
-      message: 'Your birth chart is missing required details. Please regenerate your chart with date, time, place, and gender.',
+      message: `Your saved birth chart is missing ${missingBirthFields.join(', ')}. Please open Vedic Astrology and regenerate your chart.`,
       missing: [{ label: 'Vedic birth chart', path: '/astrology' }],
     };
   }
